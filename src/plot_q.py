@@ -8,7 +8,7 @@ from mapping import (
     naive_cnot_count_from_qubit_operator,
     sorted_terms_pseudo_alphabetical,
 )
-from encodings import n_qubits
+from encodings_b import n_qubits
 from synthesize import append_pauli_evolution, cnot_count_of_compiled_circuit
 
 def build_full_circuit_from_operator(op, nq: int, theta_scale: float = 1.0):

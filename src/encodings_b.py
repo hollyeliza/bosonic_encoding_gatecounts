@@ -2,17 +2,28 @@ import math
 
 
 def n_qubits_sb(d: int) -> int:
+    """"
+    For a cut-off of d, how many qubits are needed to encode these Fock 
+    states in standard binary
+    """
     return math.ceil(math.log2(d))
 
+# print(n_qubits_sb(8))
 
 def sb_bits(l: int, d: int) -> list[int]:
+    """"
+    What is the representation of each integer l in standard binary,
+    where the number of qubits is specified
+    """
     nq = n_qubits_sb(d)
     return [(l >> i) & 1 for i in range(nq)]
 
+# print(sb_bits(3, 8))
 
 def gray_int(l: int) -> int:
     return l ^ (l >> 1)
 
+print(gray_int(8))
 
 def gray_bits(l: int, d: int) -> list[int]:
     g = gray_int(l)
@@ -56,5 +67,5 @@ def n_qubits(d: int, encoding: str) -> int:
         raise ValueError(f"Unknown encoding: {encoding}")
     
 
-gray = n_qubits(32, "gray")
-print(f'The number of qubits needed for a bosonic cut off 32 is {gray}')
+# gray = n_qubits(32, "gray")
+# print(f'The number of qubits needed for a bosonic cut off 32 is {gray}')

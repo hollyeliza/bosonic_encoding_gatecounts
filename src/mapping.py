@@ -1,6 +1,6 @@
 from itertools import product
 from openfermion import QubitOperator
-from encodings import bits_for_level, bitmask_subset, n_qubits
+from encodings_b import bits_for_level, bitmask_subset, n_qubits
 
 
 def one_qubit_map(x: int, xp: int):
