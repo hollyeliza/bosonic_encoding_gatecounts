@@ -226,7 +226,4 @@ def sorted_terms_pseudo_alphabetical(op: QubitOperator):
         return tuple((q, pauli_priority[p]) for q, p in term)
     return sorted(op.terms.items(), key=key_fn)
 
-# Question: I import QubitOperator but don't actually use it?? So CNOT cancellations
-# and compiler optimizations are done in the synthesize section. ChatGPT wrote this code
-# I have just been figuring out what it is doing - reproduces plots dine but does it agree
-# with the method in the SI?? IDK
+# Note: QubitOperator is just a class
