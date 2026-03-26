@@ -7,7 +7,8 @@ def bosonic_q_matrix(d: int) -> np.ndarray:
     q = (a^\dagger + a)/sqrt(2) in the Fock basis {|0>, ..., |d-1> (as in
     the occupation, non encoded basis). The square root has been kept although
     not in the Liu et al. paper to seem everything the same to reproduce the
-    Sawaya plots
+    Sawaya plots.
+    It gives us all the coefficients for the displacement operator.
     """
     q = np.zeros((d, d), dtype=float) # first initialize an empty matrix of the right dimension
     for n in range(d - 1):
