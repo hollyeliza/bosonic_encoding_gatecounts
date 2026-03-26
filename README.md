@@ -7,11 +7,11 @@ Sawaya et al., npj Quantum Information (2020)
 
 ## What this does
 
-- Constructs truncated bosonic position operator q
+- Constructs truncated bosonic displacement operator
 - Maps it to qubit operators using different encodings
 - Expands into Pauli strings using OpenFermion
-- Synthesizes circuits and counts CNOT gates
-- Reproduces scaling trends in the paper
+- Synthesizes circuits and counts CNOT gates (naive equation way and using compilation)
+- 'Tries to' reproduce scaling trends in the paper
 
 ## Setup
 
