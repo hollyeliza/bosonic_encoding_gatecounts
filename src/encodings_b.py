@@ -1,14 +1,11 @@
 import math
 
-
 def n_qubits_sb(d: int) -> int:
     """"
     For a cut-off of d, how many qubits are needed to encode these Fock 
     states in standard binary.
     """
     return math.ceil(math.log2(d))
-
-# print(n_qubits_sb(8))
 
 def sb_bits(l: int, d: int) -> list[int]:
     """
@@ -25,8 +22,6 @@ def sb_bits(l: int, d: int) -> list[int]:
         bitstring.append(last_bit) # if 1 then 1 is appended; if 0 then 0 appended
         # print(f'i = {i}, extracted bit = {last_bit}, bitstring so far = {bitstring}')
     return bitstring # you read bits from right to left!
-
-# print(sb_bits(3, 10))
 
 def gray_int(l: int) -> int:
     """
@@ -45,9 +40,6 @@ def gray_bits(l: int, d: int) -> list[int]:
     nq = n_qubits_sb(d)
     return [(g >> i) & 1 for i in range(nq)]
 
-# print(f'gray_bits is: {gray_bits(8, 16)}')
-
-
 def unary_bits(l: int, d: int) -> list[int]:
     """"
     Easy - makes a list of 0's and shoves a 1 at position l.
@@ -57,9 +49,6 @@ def unary_bits(l: int, d: int) -> list[int]:
     bits = [0] * d
     bits[l] = 1
     return bits
-
-# print(unary_bits(3, 6))
-
 
 def bitmask_subset(l: int, d: int, encoding: str) -> set[int]:
     """
@@ -94,7 +83,6 @@ def bits_for_level(l: int, d: int, encoding: str) -> list[int]:
 
 # print(bits_for_level(5, 6, "unary")) # In reality the 1 is at the lhs (read from right to left!)
 
-
 def n_qubits(d: int, encoding: str) -> int:
     """
     Returns the number of qubits needed to represent each of the encodings.
@@ -106,6 +94,3 @@ def n_qubits(d: int, encoding: str) -> int:
     else:
         raise ValueError(f"Unknown encoding: {encoding}")
     
-
-# gray = n_qubits(32, "gray")
-# print(f'The number of qubits needed for a bosonic cut off 32 is {gray}')
