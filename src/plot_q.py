@@ -1,15 +1,19 @@
+# This is currently specific to qiskit
+# Make specific - make sure you sort alphabetical and prep according to SI before passing
+# into the optimizer
+
 import numpy as np
 import matplotlib.pyplot as plt
 from qiskit import QuantumCircuit
 
-from bosonic_q import bosonic_q_matrix
+from bosonic_disp import bosonic_disp_operator_matrix
 from mapping import (
     matrix_to_qubit_operator,
     naive_cnot_count_from_qubit_operator,
     sorted_terms_pseudo_alphabetical,
 )
 from encodings_b import n_qubits
-from synthesize import append_pauli_evolution, cnot_count_of_compiled_circuit
+from qiskit_comp_op import append_pauli_evolution, cnot_count_of_compiled_circuit
 
 def build_full_circuit_from_operator(op, nq: int, theta_scale: float = 1.0):
     """
@@ -60,7 +64,7 @@ def run_counts(d_values):
 
     for d in d_values:
         print(f"Running d={d}")
-        qmat = bosonic_q_matrix(d)
+        qmat = bosonic_disp_operator_matrix(d)
 
         for enc in encodings:
             op = matrix_to_qubit_operator(qmat, d=d, encoding=enc)
