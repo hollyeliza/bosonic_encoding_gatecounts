@@ -131,24 +131,6 @@ q = bosonic_disp_operator_matrix(d=8)
 op = matrix_to_qubit_operator(q, d=8, encoding="gray")
 print(op)
 
-## To do (Holly)
-
-- Make sure the paper optimization aligns with what was in the SI.
-
-- - Check the optimization of cirq.
-
-- Compare how qiskit, cirq and the paper optimize.
-
-- Calculate CNOT counts for:
-
-1. Equation in the paper (naive)
-2. Optimization 'described' in the paper and attempted to be implemented here
-3. Optimization via cirq (note: I used cirq as well as qiskit as in the OpenFermion paper
-for the QubitOPerator class, qiskit wasn't explicitly listed as compatible... although 
-seems to be okay)
-4. Optimization via qiskit
-
-- Clean up the README (use it for the paper)
 
 ## Setup
 
