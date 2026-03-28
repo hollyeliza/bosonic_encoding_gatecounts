@@ -1,6 +1,6 @@
 import pytest
 
-from encodings_b import (
+from pauli_string_formation.encodings_b import (
     n_qubits_sb,
     sb_bits,
     gray_int,

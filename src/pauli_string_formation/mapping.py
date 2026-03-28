@@ -4,7 +4,8 @@
 
 from itertools import product
 from openfermion import QubitOperator
-from encodings_b import bits_for_level, bitmask_subset, n_qubits
+from pauli_string_formation.encodings_b import bits_for_level, bitmask_subset, n_qubits
+from pauli_string_formation.bosonic_disp import bosonic_disp_operator_matrix
 
 def one_qubit_map(x: int, xp: int):
     """
@@ -69,7 +70,6 @@ def matrix_element_to_qubit_operator(
     bits_lp = bits_for_level(lp, d, encoding)
     # You do not need to act on every qubit if the encoding is noncompact:
     support = sorted(bitmask_subset(l, d, encoding) | bitmask_subset(lp, d, encoding)) 
-    print(support)
     local_choices = [] # the unique, sorted qubit numbers of relvant qubits
     for q in support:
         local_choices.append(one_qubit_map(bits_l[q], bits_lp[q])) # a list of a list of pauli terms for each relevant qubit (in support) 
@@ -93,11 +93,9 @@ def matrix_element_to_qubit_operator(
         op += QubitOperator(tuple(term), total_coeff)
     return op
 
-print(f'In unary: {matrix_element_to_qubit_operator(5, 6, 7, 12, "unary")}') # only qubits 5 and 6 involved - more local as less in support 
+# print(f'In unary: {matrix_element_to_qubit_operator(5, 6, 7, 12, "unary")}') # only qubits 5 and 6 involved - more local as less in support 
 
 # print(f'In gray: {matrix_element_to_qubit_operator(5, 6, 7, 12, "gray")}')
-
-# Hmmm _simplify in the class defintion looks at the commutation.
 
 
 def matrix_to_qubit_operator(mat, d: int, encoding: str, tol: float = 1e-14) -> QubitOperator:
@@ -110,6 +108,7 @@ def matrix_to_qubit_operator(mat, d: int, encoding: str, tol: float = 1e-14) -> 
         for lp in range(d):
             coeff = mat[l, lp]
             if abs(coeff) > tol: # If the matrix element is numerically tiny, do nothing.
+                # print(f'next: {op}')
                 op += matrix_element_to_qubit_operator(l, lp, coeff, d, encoding) # Convert that one matrix element into Pauli strings
     op.compress(abs_tol=1e-12) # combines duplicate strings and removes very tiny coefficients
     return op
@@ -117,21 +116,62 @@ def matrix_to_qubit_operator(mat, d: int, encoding: str, tol: float = 1e-14) -> 
 
 def sorted_terms_pseudo_alphabetical(op: QubitOperator):
     """
-    Try to mimic the paper's pseudo-alphabetical ordering:
-    X on low qubits first, then Y, then Z, etc.
-    The amount of gate cancellation depends on the order of the terms...
+    Sort Pauli terms to mimic the SI 'pseudo-alphabetical' ordering:
+
+    - First by the Pauli acting on the lowest-index qubit
+    - X terms first, then Y, then Z
+    - Then by qubit index structure to keep similar ladders adjacent
     """
     pauli_priority = {"X": 0, "Y": 1, "Z": 2}
 
     def key_fn(item):
         term, coeff = item
+
         if len(term) == 0:
-            return ((10_000, 10_000),) # practical trick making identity sort last with arbitrarily large number
-        return tuple((q, pauli_priority[p]) for q, p in term)
+            return (10_000,)
+
+        # sort term by qubit index (OpenFermion usually already does this)
+        term = sorted(term, key=lambda x: x[0])
+
+        # First non-identity Pauli (smallest qubit index)
+        first_qubit, first_pauli = term[0]
+
+        # primary: Pauli type on first qubit
+        primary = pauli_priority[first_pauli]
+
+        # secondary: qubit positions
+        qubit_pattern = tuple(q for q, _ in term)
+
+        # tertiary: Pauli pattern
+        pauli_pattern = tuple(pauli_priority[p] for _, p in term)
+
+        return (primary, qubit_pattern, pauli_pattern)
+
     return sorted(op.terms.items(), key=key_fn)
 
 
-# These functions were for when I did not use the papers direct binomial logic equation
+# What the paper did before synthesizing quantum circuits (Using QubitOperator class):
+
+# 1. Collected coefficients and cancelled Pauli terms - when you add strings corresponding to differet
+# transitions to the op this happensn automatically (baked into class def) - tested
+
+# 2. Pauli terms listed in pseudo-alphabetical order such that terms containing Pauli
+# x on qubit 0 are listed first followed by Pauli's on qubit 0 and then same for 
+# qubit 2, 3 etc.
+
+
+# mat1 = bosonic_disp_operator_matrix(9)
+# test = matrix_to_qubit_operator(mat1, 9, "sb")
+# sorted = sorted_terms_pseudo_alphabetical(test)
+
+# print(test)
+# print(sorted)
+
+
+# Below functions calculate the number of Pauli's by looking through the strings and
+# deducing manually. They should get the same CNOT count as the equation in the paper
+# but will not reproduce the plots as these were formed after applying an optimization
+# procedure outlined in the paper to reduce the CNOT count.
 
 # def pauli_length(term) -> int:
 #     """"

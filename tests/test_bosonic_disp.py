@@ -1,5 +1,5 @@
 import numpy as np
-from bosonic_disp import bosonic_disp_operator_matrix
+from pauli_string_formation.bosonic_disp import bosonic_disp_operator_matrix
 
 def test_bosonic_disp_operator_matrix_matches_expected():
     d = 4

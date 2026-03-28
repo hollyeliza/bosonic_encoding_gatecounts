@@ -22,7 +22,7 @@
 
 import math
 from math import comb
-from encodings_b import bits_for_level, bitmask_subset
+from pauli_string_formation.encodings_b import bits_for_level, bitmask_subset
 
 def hamming_distance(bits1: list[int], bits2: list[int]) -> int:
     """

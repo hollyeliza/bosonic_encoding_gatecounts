@@ -19,6 +19,13 @@
 # orderings that match similar Pauli strings side-by-side will lead to more pairs of adjacent CNOT gates 
 # and adjacent single-qubit gates.
 
+# Convert Pauli term to CNOT ladder in order obtained after pseudo-alphabetical def
+# Construct circuit
+# Commut each term as far back and as far forward as possible to see if it can be cancelled with
+# inverse or merged with another rotation gate.
+# The CNOT pattern described is looked for
+# This should be it
+
 from dataclasses import dataclass
 from typing import Optional
 
@@ -261,3 +268,154 @@ def optimize_gate_list(
             break
 
     return records
+
+def basis_change_gates_for_pauli(term) -> list[Gate]:
+    """
+    Return the forward basis-change gates needed to turn a Pauli string
+    into a Z-string before the parity ladder.
+
+    With the current abstract gate model:
+      - X and Y are both represented by a generic self-inverse basis-change gate B
+      - Z needs no basis change
+
+    Important:
+        This is good enough for CNOT-count comparisons under the paper-style
+        optimizer, but it does NOT distinguish X-basis changes from Y-basis
+        changes. So it is a simplified optimizer model, not a fully faithful
+        single-qubit synthesis model.
+    """
+    gates: list[Gate] = []
+    for q, p in term:
+        if p in {"X", "Y"}:
+            gates.append(Gate("B", (q,)))
+        elif p == "Z":
+            pass
+        else:
+            raise ValueError(f"Unexpected Pauli: {p}")
+    return gates
+
+
+def undo_basis_change_gates_for_pauli(term) -> list[Gate]:
+    """
+    Return the inverse basis-change gates.
+
+    Since B is modeled as self-inverse, undoing is just the reverse list of B gates.
+    """
+    gates: list[Gate] = []
+    for q, p in reversed(term):
+        if p in {"X", "Y"}:
+            gates.append(Gate("B", (q,)))
+        elif p == "Z":
+            pass
+        else:
+            raise ValueError(f"Unexpected Pauli: {p}")
+    return gates
+
+
+def pauli_term_to_gate_list(term, theta: float) -> list[Gate]:
+    """
+    Convert a single Pauli-string evolution exp(-i theta P) into the abstract
+    gate list used by the paper-style optimizer.
+
+    Parameters
+    ----------
+    term
+        A Pauli term in OpenFermion/QubitOperator style, e.g.
+        ((0, 'X'), (1, 'Y'), (3, 'Z'))
+    theta
+        Rotation parameter for exp(-i theta P)
+
+    Returns
+    -------
+    list[Gate]
+        Gate sequence:
+            basis changes
+            CNOT ladder
+            RZ on target
+            inverse CNOT ladder
+            undo basis changes
+
+    Notes
+    -----
+    - For a p-qubit Pauli string, this produces 2(p-1) CNOTs when p >= 2.
+    - Identity terms produce no gates.
+    """
+    if len(term) == 0:
+        return []
+
+    gates: list[Gate] = []
+
+    # 1. Basis changes so that P is turned into a Z-string
+    gates.extend(basis_change_gates_for_pauli(term))
+
+    qubits = [q for q, _ in term]
+
+    # 2. Parity ladder + central RZ
+    if len(qubits) == 1:
+        gates.append(Gate("RZ", (qubits[0],), 2.0 * theta))
+    else:
+        target = qubits[-1]
+
+        for control in qubits[:-1]:
+            gates.append(Gate("CNOT", (control, target)))
+
+        gates.append(Gate("RZ", (target,), 2.0 * theta))
+
+        for control in reversed(qubits[:-1]):
+            gates.append(Gate("CNOT", (control, target)))
+
+    # 3. Undo basis changes
+    gates.extend(undo_basis_change_gates_for_pauli(term))
+
+    return gates
+
+
+def qubit_operator_to_gate_list(op, term_order=None, tol: float = 1e-12) -> list[Gate]:
+    """
+    Convert a QubitOperator into one flat gate list by exponentiating
+    each Pauli term separately in the chosen order.
+
+    Parameters
+    ----------
+    op
+        QubitOperator-like object with .terms dictionary
+    term_order
+        Optional iterable of (term, coeff) pairs. If omitted, uses op.terms.items().
+        This lets you pass in your pseudo-alphabetically sorted ordering.
+    tol
+        Numerical tolerance for dropping tiny coefficients.
+
+    Returns
+    -------
+    list[Gate]
+        Concatenated gate list for all Pauli-string evolutions.
+
+    Important
+    ---------
+    This assumes coefficients are real to numerical tolerance.
+    If a coefficient has a significant imaginary part, an error is raised.
+    """
+    if term_order is None:
+        term_order = op.terms.items()
+
+    gates: list[Gate] = []
+
+    for term, coeff in term_order:
+        if abs(coeff) < tol:
+            continue
+
+        if len(term) == 0:
+            # ignore identity term for gate counting
+            continue
+
+        coeff_c = complex(coeff)
+        if abs(coeff_c.imag) > tol:
+            raise ValueError(
+                f"Non-negligible imaginary coefficient encountered for term {term}: {coeff}"
+            )
+
+        theta = float(coeff_c.real)
+        gates.extend(pauli_term_to_gate_list(term, theta))
+
+    return gates
+

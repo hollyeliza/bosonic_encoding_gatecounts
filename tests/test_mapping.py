@@ -1,7 +1,7 @@
 import pytest
 from openfermion import QubitOperator
 
-from mapping import (
+from pauli_string_formation.mapping import (
     one_qubit_map,
     matrix_element_to_qubit_operator,
     pauli_length,

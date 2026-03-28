@@ -19,7 +19,8 @@ def bosonic_disp_operator_matrix(d: int) -> np.ndarray:
     Parameters
     ----------
     d : int
-        The highest occupation of the bosonic mode we want the physical system access to
+        The highest occupation of the bosonic mode we want the physical system access to - 1
+        ( d = N_max + 1 )
 
     Returns
     -------
@@ -37,3 +38,26 @@ def bosonic_disp_operator_matrix(d: int) -> np.ndarray:
         q[n, n + 1] = val # adding this in 2 positions - matrix is tridiagonal
         q[n + 1, n] = val
     return q
+
+# print(bosonic_disp_operator_matrix(9))
+
+# [[0.         0.70710678 0.         0.         0.         0.
+#   0.         0.         0.        ]
+#  [0.70710678 0.         1.         0.         0.         0.
+#   0.         0.         0.        ]
+#  [0.         1.         0.         1.22474487 0.         0.
+#   0.         0.         0.        ]
+#  [0.         0.         1.22474487 0.         1.41421356 0.
+#   0.         0.         0.        ]
+#  [0.         0.         0.         1.41421356 0.         1.58113883
+#   0.         0.         0.        ]
+#  [0.         0.         0.         0.         1.58113883 0.
+#   1.73205081 0.         0.        ]
+#  [0.         0.         0.         0.         0.         1.73205081
+#   0.         1.87082869 0.        ]
+#  [0.         0.         0.         0.         0.         0.
+#   1.87082869 0.         2.        ]
+#  [0.         0.         0.         0.         0.         0.
+#   0.         2.         0.        ]]
+
+# print(0.70710678 * (1/(2**4))) = 0.04419417375 (yay matches the string)

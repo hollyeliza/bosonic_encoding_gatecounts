@@ -2,10 +2,13 @@ import math
 
 def n_qubits_sb(d: int) -> int:
     """"
-    For a cut-off of d, how many qubits are needed to encode these Fock 
-    states in standard binary.
+    How many qubits are needed to encode Fock states up to d (d = N_ max + 1)
+    in standard binary
     """
     return math.ceil(math.log2(d))
+
+# If N_max = 8, d = 9
+# print(n_qubits_sb(9))
 
 def sb_bits(l: int, d: int) -> list[int]:
     """
@@ -22,6 +25,8 @@ def sb_bits(l: int, d: int) -> list[int]:
         bitstring.append(last_bit) # if 1 then 1 is appended; if 0 then 0 appended
         # print(f'i = {i}, extracted bit = {last_bit}, bitstring so far = {bitstring}')
     return bitstring # you read bits from right to left!
+
+print(sb_bits(8, 9))
 
 def gray_int(l: int) -> int:
     """
