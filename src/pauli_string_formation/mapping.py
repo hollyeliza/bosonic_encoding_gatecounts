@@ -4,8 +4,8 @@
 
 from itertools import product
 from openfermion import QubitOperator
-from pauli_string_formation.encodings_b import bits_for_level, bitmask_subset, n_qubits
-from pauli_string_formation.bosonic_disp import bosonic_disp_operator_matrix
+from src.pauli_string_formation.encodings_b import bits_for_level, bitmask_subset, n_qubits
+from src.pauli_string_formation.bosonic_disp import bosonic_disp_operator_matrix
 
 def one_qubit_map(x: int, xp: int):
     """
@@ -31,13 +31,15 @@ def one_qubit_map(x: int, xp: int):
 # print(one_qubit_map(1,0))
 
 
-def matrix_element_to_qubit_operator(
+def single_matrix_element_to_qubit_operator(
     l: int, lp: int, coeff: complex, d: int, encoding: str
 ) -> QubitOperator:
     """
     Builds a QubitOperator object for a given transition - in other words converts a 
     single bosonic matrix element coeff * |l><lp| into a sum of Pauli strings acting on 
     qubits (we need to do this for all transitions to get a big string of Pauli strings!).
+
+    'single' as h.c. logic in next function.
 
     A bosonic operator written in the truncated Fock basis can be decomposed as
     a sum over matrix elements |l><lp|. This function takes one such element and
@@ -96,6 +98,50 @@ def matrix_element_to_qubit_operator(
 # print(f'In unary: {matrix_element_to_qubit_operator(5, 6, 7, 12, "unary")}') # only qubits 5 and 6 involved - more local as less in support 
 
 # print(f'In gray: {matrix_element_to_qubit_operator(5, 6, 7, 12, "gray")}')
+
+def matrix_element_to_qubit_operator(
+    l: int, lp: int, coeff: complex, d: int, encoding: str
+) -> QubitOperator:
+    """
+    Builds a QubitOperator object for a given transition - in other words converts a 
+    single bosonic matrix element coeff * |l><lp| into a sum of Pauli strings acting on 
+    qubits (we need to do this for all transitions to get a big string of Pauli strings!).
+
+    A bosonic operator written in the truncated Fock basis can be decomposed as
+    a sum over matrix elements |l><lp|. This function takes one such element and
+    maps it into qubit space using the chosen encoding (standard binary, Gray, or unary).
+
+    Parameters
+    ----------
+    l : int
+        Initial logical bosonic level.
+    lp : int
+        Final logical bosonic level.
+    coeff : complex
+        Coefficient multiplying |l><lp|.
+    d : int
+        Bosonic cutoff dimension.
+    encoding : str
+        Encoding used to map bosonic levels to qubits.
+        Supported values: "sb", "gray", "unary".
+
+    Returns
+    -------
+    QubitOperator
+        The Pauli-string expansion of coeff * |l><lp| in the chosen encoding.
+        
+        From QubitOperator class docstring:  A QubitOperator represents a sum 
+        of terms acting on qubits and overloads operations for easy manipulation 
+        of these objects by the user.
+    """
+
+    op_forward = single_matrix_element_to_qubit_operator(l, lp, coeff, d, encoding)
+    op_backward = single_matrix_element_to_qubit_operator(lp, l, coeff.conjugate(), d, encoding)
+
+    op = op_forward + op_backward
+    op.compress(abs_tol=1e-12)
+    return op
+
 
 
 def matrix_to_qubit_operator(mat, d: int, encoding: str, tol: float = 1e-14) -> QubitOperator:
