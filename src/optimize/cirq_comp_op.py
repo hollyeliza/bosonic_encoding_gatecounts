@@ -1,14 +1,59 @@
 import math
 import cirq
 from openfermion import QubitOperator
+from src.pauli_string_formation.mapping import matrix_element_to_qubit_operator
 
 
-def qubits_from_qubit_operator(op: QubitOperator) -> dict[int, cirq.Qid]:
+def cirq_qubits(op: QubitOperator) -> dict[int, cirq.Qid]:
     """
-    Create a consistent mapping from OpenFermion qubit indices to Cirq qubits.
+    Create a mapping from integer qubit indices appearing in a QubitOperator
+    to Cirq LineQubits.
+
+    Parameters
+    ----------
+    op
+        OpenFermion QubitOperator. Its terms are Pauli strings, and each
+        Pauli string is a tuple of (qubit_index, pauli_label) pairs.
+
+    Returns
+    -------
+    dict[int, cirq.Qid]
+        Mapping from integer qubit index to the corresponding Cirq qubit.
+
+    Example
+    -------
+    If op contains:
+        X0 Y2 + Z1
+
+    then this returns:
+        {
+            0: cirq.LineQubit(0),
+            1: cirq.LineQubit(1),
+            2: cirq.LineQubit(2),
+        }
     """
-    all_indices = sorted({q for term in op.terms for q, _ in term})
-    return {i: cirq.LineQubit(i) for i in all_indices}
+
+    terms = op.terms # The dictionary inside the QubitOperator that stores each Pauli string and coefficients
+
+    all_indices = set()
+
+    for pauli_string in terms.keys(): 
+        # Example pauli_string: ((0, 'Z'), (1, 'X'))
+        for local_factor in pauli_string:
+            qubit_index = local_factor[0]
+            all_indices.add(qubit_index)
+
+    qubit_map = {}
+    for i in sorted(all_indices):
+        qubit_map[i] = cirq.LineQubit(i)
+
+    return qubit_map
+
+trial = matrix_element_to_qubit_operator(5, 6, 2, 8, "gray")
+print(f'Pauli string for single transition: {trial}') # hmm already sorted without pseudo
+trial_2 = cirq_qubits(trial)
+print(f'cirq mapping: {trial_2}')
+
 
 
 def basis_change_into_z(circuit: cirq.Circuit, qubit: cirq.Qid, pauli: str) -> None:
@@ -61,32 +106,37 @@ def undo_basis_change(circuit: cirq.Circuit, qubit: cirq.Qid, pauli: str) -> Non
         raise ValueError(f"Unsupported Pauli: {pauli}")
 
 
-def cirq_circuit(
-    ordered_terms,
-) -> tuple[cirq.Circuit, dict[int, cirq.Qid]]:
+def cirq_circuit(ordered_terms: QubitOperator) -> tuple[cirq.Circuit, dict[int, cirq.Qid]]:
     """
-    Build a Cirq circuit from an already ordered list of Pauli terms.
+    Builds a Cirq circuit from an already ordered list of Pauli terms .
+    (takes output from sorted_terms_pseudo_alphabetical). It looks through
+    all of the Pauli terms in the operator, compiles each term into gates
+    and then appends them all to the same circuit.
 
-    Each term is compiled as exp(-i * theta * P), where theta is taken
-    directly from the coefficient.
+    It does this by changing basis and then using a CNOT ladder to get the
+    parity onto the last qubit.
+
+    Each term is compiled as exp(-i * theta * P), where theta is taken from the 
+    coefficient.
 
     Parameters
     ----------
     ordered_terms
-        Iterable of (term, coeff) pairs, already in the desired order.
-        The coefficient is interpreted directly as the rotation angle.
+        The Pauli string for the bosonic displacement operator in the pseudo - alphabetical
+        order
 
     Returns
     -------
     circuit, qubit_map
     """
-    all_indices = sorted({q for term, _ in ordered_terms for q, _ in term})
-    qubit_map = {i: cirq.LineQubit(i) for i in all_indices}
 
+    qubit_map = cirq_qubits(ordered_terms) # Creates all the required cirq qubits
     circuit = cirq.Circuit()
 
-    for term, coeff in ordered_terms:
-        if len(term) == 0:
+    for term, coeff in ordered_terms.terms.items():
+        # term = ((0, 'X'), (2, 'Y'))
+        # coeff = 0.3
+        if len(term) == 0: # means identity
             continue
 
         if abs(coeff.imag) > 1e-12:
@@ -95,27 +145,28 @@ def cirq_circuit(
                 "Expected real coefficients for unitary evolution."
             )
 
-        theta = coeff.real
+        theta = coeff.real # the phase angle used for the globl phase on last qubit after all entangled with CNOTs
 
-        qubits = [qubit_map[q] for q, _ in term]
-        paulis = [p for _, p in term]
+        qubits = [qubit_map[q] for q, _ in term] # the cirq qubit associted with the term
+        paulis = [p for _, p in term] # the paulis associated with the cirq qubits in this term
 
         # 1. Basis change → Z basis
         for qubit, pauli in zip(qubits, paulis):
             basis_change_into_z(circuit, qubit, pauli)
 
-        # 2–3. Parity + Z rotation (star pattern)
+        # 2–3. Parity + Z rotation (CNOT ladder)
         if len(qubits) == 1:
             circuit.append(cirq.rz(2 * theta).on(qubits[0]))
         else:
-            target = qubits[-1]
-
-            for control in qubits[:-1]:
+            # Forward ladder: q0->q1, q1->q2, ..., q_{n-2}->q_{n-1}
+            for control, target in zip(qubits[:-1], qubits[1:]):
                 circuit.append(cirq.CNOT(control, target))
 
-            circuit.append(cirq.rz(2 * theta).on(target))
+            # Apply the phase on the last qubit
+            circuit.append(cirq.rz(2 * theta).on(qubits[-1]))
 
-            for control in reversed(qubits[:-1]):
+            # Undo the ladder in reverse
+            for control, target in reversed(list(zip(qubits[:-1], qubits[1:]))):
                 circuit.append(cirq.CNOT(control, target))
 
         # 4. Undo basis change
@@ -124,31 +175,7 @@ def cirq_circuit(
 
     return circuit, qubit_map
 
-
-def optimize_cirq_circuit(circuit: cirq.Circuit) -> cirq.Circuit:
-    """
-    Apply a few simple Cirq optimizations. This is not guaranteed to reproduce
-    a paper's custom optimizer exactly, but it is a reasonable baseline.
-    """
-    optimized = circuit.copy()
-
-    # Merge / simplify 1q gates and eject Z's where possible.
-    cirq.merge_k_qubit_unitaries(optimized, k=1, rewriter=lambda op: op)
-    cirq.eject_z(optimized)
-    cirq.drop_negligible_operations(optimized)
-    cirq.drop_empty_moments(optimized)
-
-    return optimized
-
-def count_cnots(circuit: cirq.Circuit) -> int:
-    """
-    Count exact CNOT gates in a Cirq circuit.
-    """
-    total = 0
-    for op in circuit.all_operations():
-        if isinstance(op.gate, cirq.CNotPowGate) and abs(op.gate.exponent - 1) < 1e-12:
-            total += 1
-    return total
+trial_3 = cirq_circuit(trial) # Trial for one transition
 
 
 def optimize_cirq_circuit(circuit: cirq.Circuit) -> cirq.Circuit:
@@ -188,4 +215,14 @@ def optimize_cirq_circuit(circuit: cirq.Circuit) -> cirq.Circuit:
 
     return optimized
 
+
+def count_cnots(circuit: cirq.Circuit) -> int:
+    """
+    Count exact CNOT gates in a Cirq circuit.
+    """
+    total = 0
+    for op in circuit.all_operations():
+        if isinstance(op.gate, cirq.CNotPowGate) and abs(op.gate.exponent - 1) < 1e-12:
+            total += 1
+    return total
 
