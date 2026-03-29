@@ -220,6 +220,8 @@ def optimize_cirq_circuit(circuit: cirq.Circuit) -> cirq.Circuit:
 def count_cnots(circuit: cirq.Circuit) -> int:
     """
     Count exact CNOT gates in a Cirq circuit.
+    Note: cirq circuit returns a tuple where the first term is the actual cirq circuit. Make sure
+    that you feed the first term only into this function.
     """
     total = 0
     for op in circuit.all_operations():
@@ -229,7 +231,7 @@ def count_cnots(circuit: cirq.Circuit) -> int:
 
 # circuit is being treated as QubitOoperator but circuit is a cirq.circuit with these attributes...
 
-print(f'The number of cnots in the trial before cirq optimization: {count_cnots(trial_3_circuit)}')
+# print(f'The number of cnots in the trial before cirq optimization: {count_cnots(trial_3_circuit)}')
 
-optimized_circuit_trial = optimize_cirq_circuit(trial_3_circuit)
-print(f'The number of cnots in the trial after cirq optimization: {count_cnots(optimized_circuit_trial)}')
+# optimized_circuit_trial = optimize_cirq_circuit(trial_3_circuit)
+# print(f'The number of cnots in the trial after cirq optimization: {count_cnots(optimized_circuit_trial)}')
