@@ -139,7 +139,7 @@ def cirq_circuit(ordered_terms: QubitOperator) -> tuple[cirq.Circuit, dict[int, 
         if len(term) == 0: # means identity
             continue
 
-        if abs(coeff.imag) > 1e-12:
+        if abs(coeff.imag) > 1e-12: # There should be no non-Hermitian terms because I took the h.c. in mapping.matrix_element_to_qubit_operator
             raise ValueError(
                 f"Term {term} has complex coefficient {coeff}. "
                 "Expected real coefficients for unitary evolution."
@@ -175,7 +175,8 @@ def cirq_circuit(ordered_terms: QubitOperator) -> tuple[cirq.Circuit, dict[int, 
 
     return circuit, qubit_map
 
-trial_3 = cirq_circuit(trial) # Trial for one transition
+trial_3_circuit,  trial_3_qubit_map = cirq_circuit(trial) # Trial for one transition
+print(type(trial_3_circuit))
 
 
 def optimize_cirq_circuit(circuit: cirq.Circuit) -> cirq.Circuit:
@@ -226,3 +227,9 @@ def count_cnots(circuit: cirq.Circuit) -> int:
             total += 1
     return total
 
+# circuit is being treated as QubitOoperator but circuit is a cirq.circuit with these attributes...
+
+print(f'The number of cnots in the trial before cirq optimization: {count_cnots(trial_3_circuit)}')
+
+optimized_circuit_trial = optimize_cirq_circuit(trial_3_circuit)
+print(f'The number of cnots in the trial after cirq optimization: {count_cnots(optimized_circuit_trial)}')
