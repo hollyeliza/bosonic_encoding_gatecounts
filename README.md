@@ -15,6 +15,8 @@ Sawaya et al., npj Quantum Information (2020)
 
 ## File structure
 
+Note: Since all changed - need to update
+
 src/
 - encodings_b.py        # bit encodings (unary, Gray, binary)
 - mapping.py            # maps |l><l'| → Pauli strings
