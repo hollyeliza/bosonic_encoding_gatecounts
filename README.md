@@ -5,6 +5,10 @@ across different encodings (standard binary, Gray, unary), following:
 
 Sawaya et al., npj Quantum Information (2020)
 
+The unoptimized CNOT counts are looked at alongside different optimization methods
+(the way the paper described and also qiskit and cirq) to try and recreate the CNOT
+counts obtained in the paper for the encodings.
+
 ## What this does
 
 - Constructs truncated bosonic displacement operator
