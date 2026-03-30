@@ -11,7 +11,7 @@ Edit the import block below to match your repo layout if needed.
 
 from __future__ import annotations
 
-import argparse
+import json
 from pathlib import Path
 from typing import Iterable
 
@@ -102,11 +102,24 @@ def main() -> None:
     results_dir = Path(__file__).resolve().parents[1] / "results"
     results_dir.mkdir(exist_ok=True)
 
-    output_path = results_dir / "cirq_cnot_vs_d.png"
+    # json for notebook
+    json_path = results_dir / "cirq_cnot_vs_d.json"
+    with open(json_path, "w") as f:
+        json.dump(results, f)
 
     save_plot(
         results=results,
-        output_path=output_path,
+        output_path=json_path,
+        show_raw=True,
+        logy=False,
+    )
+
+    #png
+    plot_path = results_dir / "cirq_cnot_vs_d.png"
+
+    save_plot(
+        results=results,
+        output_path=plot_path,
         show_raw=True,
         logy=False,
     )
