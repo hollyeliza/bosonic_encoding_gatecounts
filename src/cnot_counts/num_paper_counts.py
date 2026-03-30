@@ -2,7 +2,6 @@ from optimize.paper_op import qubit_operator_to_gate_list, optimize_gate_list, c
 from pauli_string_formation.mapping import sorted_terms_pseudo_alphabetical
 from openfermion import QubitOperator
 
-
 def paper_cnot_counts(op: QubitOperator):
     """
     Compute CNOT counts using the paper-style optimizer.

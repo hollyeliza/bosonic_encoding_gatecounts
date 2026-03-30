@@ -52,7 +52,7 @@ def cirq_counts_for_encoding(
 
         raw_cx, opt_cx = cirq_cnot_count_before_and_after_optimization(op_pseudo) 
 
-        print(f"[{encoding}] d={d}: raw={raw_cx}, optimized={opt_cx}")
+        print(f"[{encoding}] d={d}: pre-cirq op cnot count ={raw_cx}, post-cirq op cnot count={opt_cx}")
 
         ds.append(d)
         pre_op_count.append(raw_cx)
@@ -74,11 +74,11 @@ def save_plot(
     plt.figure(figsize=(8, 5))
 
     for encoding, (ds, pre_op_count, optimized_count) in results.items():
-        plt.plot(ds, optimized_count, marker="o", label=f"{encoding} (optimized)")
-
+        plt.plot(ds, optimized_count, marker="o", label=f"{encoding} (after optimization)")
+        plt.plot(ds, pre_op_count, marker="o", linestyle="--", label=f"{encoding} (before optimization)")
     plt.xlabel("Cutoff d")
     plt.ylabel("CNOT count")
-    plt.title("Cirq-optimized CNOT cost vs cutoff d")
+    plt.title("Cirq pre and post optimized CNOT cost vs cutoff d")
     if logy:
         plt.yscale("log")
     plt.legend()
@@ -113,3 +113,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# The opimization hasn't seem to have done anything - CNOT count before and after is the same
