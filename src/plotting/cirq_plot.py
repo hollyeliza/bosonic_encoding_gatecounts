@@ -98,10 +98,15 @@ def main() -> None:
             d_values=d_values,
             encoding=encoding
         )
+    
+    results_dir = Path(__file__).resolve().parents[1] / "results"
+    results_dir.mkdir(exist_ok=True)
+
+    output_path = results_dir / "cirq_cnot_vs_d.png"
 
     save_plot(
         results=results,
-        output_path=Path("cirq_cnot_vs_d.png"),
+        output_path=output_path,
         show_raw=True,
         logy=False,
     )
