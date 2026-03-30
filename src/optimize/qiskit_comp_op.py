@@ -31,26 +31,18 @@ def undo_basis_change(qc: QuantumCircuit, qubit: int, pauli: str):
         raise ValueError(f"Unexpected Pauli: {pauli}")
 
 
-def qiskit_circuit(
+from qiskit import QuantumCircuit
+from openfermion import QubitOperator
+
+
+def append_qiskit_pauli_term(
     qc: QuantumCircuit,
     term,
     theta: float,
 ) -> None:
     """
-    Append the unitary exp(-i * theta * P) for a single Pauli string P
+    Append exp(-i * theta * P) for a single Pauli string P
     to an existing Qiskit circuit.
-
-    Here P is a product of Pauli operators acting on different qubits,
-    for example X_0 Y_1 Z_2. This corresponds to one term in a Hamiltonian
-    after Pauli decomposition.
-
-    The implementation proceeds by:
-    1. Rotating each involved qubit into the Z basis,
-    2. Using a CNOT ladder to accumulate the parity of the Pauli string
-       onto the last qubit,
-    3. Applying a single Rz(2 * theta) rotation on that qubit,
-    4. Uncomputing the CNOT ladder,
-    5. Undoing the basis changes.
 
     Parameters
     ----------
@@ -69,8 +61,6 @@ def qiskit_circuit(
     Notes
     -----
     Identity terms produce only a global phase and are skipped here.
-    Global phase/sign conventions are ignored, as they do not affect
-    gate counting.
     """
     if len(term) == 0:
         return
@@ -78,50 +68,97 @@ def qiskit_circuit(
     qubits = [q for q, _ in term]
     paulis = [p for _, p in term]
 
-    # 1. Rotate into the Z basis.
+    # 1. Rotate into the Z basis
     for q, p in zip(qubits, paulis):
         apply_basis_change(qc, q, p)
 
-    # 2–4. CNOT ladder + Z rotation + uncompute.
+    # 2–4. CNOT ladder + Z rotation + uncompute
     if len(qubits) == 1:
         qc.rz(2.0 * theta, qubits[0])
     else:
-        # Forward ladder: q0->q1, q1->q2, ..., q_{n-2}->q_{n-1}
         for control, target in zip(qubits[:-1], qubits[1:]):
             qc.cx(control, target)
 
-        # Apply phase on the last qubit
         qc.rz(2.0 * theta, qubits[-1])
 
-        # Undo ladder in reverse
         for control, target in reversed(list(zip(qubits[:-1], qubits[1:]))):
             qc.cx(control, target)
 
-    # 5. Undo basis changes.
+    # 5. Undo basis changes
     for q, p in reversed(list(zip(qubits, paulis))):
         undo_basis_change(qc, q, p)
+
+
+def qiskit_circuit(ordered_terms: QubitOperator) -> QuantumCircuit:
+    """
+    Build a full Qiskit circuit from a QubitOperator whose terms are already
+    in the desired iteration order.
+
+    Each term c * P is compiled as exp(-i * theta * P), where theta is taken
+    from the real part of the coefficient c.
+
+    Parameters
+    ----------
+    ordered_terms
+        QubitOperator whose terms are already ordered as desired
+        (for example via pseudo_alphabetical_qubit_operator).
+
+    Returns
+    -------
+    QuantumCircuit
+        The full Trotter-style circuit obtained by appending all term circuits.
+    """
+    # Find how many qubits are needed
+    max_qubit = -1
+    for term in ordered_terms.terms:
+        for q, _ in term:
+            max_qubit = max(max_qubit, q)
+
+    n_qubits = max_qubit + 1 if max_qubit >= 0 else 1
+    qc = QuantumCircuit(n_qubits)
+
+    for term, coeff in ordered_terms.terms.items():
+        theta = coeff.real
+        append_qiskit_pauli_term(qc, term, theta)
+
+    return qc
 
 
 # Question: Is the hermitian conjugate counted in the cost - this could really affect things!!
 # Also explicitly write a function to calculate the naive count also.
 
-def transpilation_counts(qc: QuantumCircuit, optimization_level: int = 3) -> int:
+from qiskit import QuantumCircuit, transpile
+
+
+def optimize_qiskit_circuit(
+    qc: QuantumCircuit,
+    optimization_level: int = 3,
+) -> tuple[int, QuantumCircuit]:
     """
-    Transpiles the quantum circuit and returns the number of CNOT (CX) gates after 
-    optimization.
+    Transpile the quantum circuit and return:
 
-    The circuit is compiled using Qiskit's transpiler into a basis consisting
-    of {"cx", "rz", "h", "s", "sdg"}, which reflects a typical hardware-native
-    gate set for superconducting qubits.
+        optimized_cnot_count, optimized_circuit
 
-    The optimization level controls how aggressively Qiskit simplifies the circuit:
-        - 0: no optimization
-        - 1–3: increasing levels of gate cancellation, merging, and re-synthesis
+    The circuit is compiled into the basis
+    {"cx", "rz", "h", "s", "sdg"}.
 
-    This function is used to obtain a more realistic estimate of the entangling
-    gate cost (CNOT count) compared to naive analytical estimates such as
-    2(p-1) per Pauli string.
+    Parameters
+    ----------
+    qc
+        Input circuit.
+    optimization_level
+        Qiskit transpiler optimization level:
+            0: no optimization
+            1-3: increasing optimization effort
+
+    Returns
+    -------
+    optimized_cnot_count, optimized_circuit
     """
-    tqc = transpile(qc, basis_gates=["cx", "rz", "h", "s", "sdg"], optimization_level=optimization_level)
+    tqc = transpile(
+        qc,
+        basis_gates=["cx", "rz", "h", "s", "sdg"],
+        optimization_level=optimization_level,
+    )
     counts = tqc.count_ops()
     return int(counts.get("cx", 0)), tqc

@@ -2,79 +2,34 @@
 # Make specific - make sure you sort alphabetical and prep according to SI before passing
 # into the optimizer
 
-import numpy as np
-import matplotlib.pyplot as plt
 from qiskit import QuantumCircuit
+from openfermion import QubitOperator
 
-from pauli_string_formation.bosonic_disp import bosonic_disp_operator_matrix
-from pauli_string_formation.mapping import (
-    matrix_to_qubit_operator,
-    naive_cnot_count_from_qubit_operator,
-    sorted_terms_pseudo_alphabetical,
-)
-from pauli_string_formation.encodings_b import n_qubits
-from optimize.qiskit_comp_op import append_pauli_evolution, cnot_count_of_compiled_circuit
+from src.optimize.qiskit_comp_op import qiskit_circuit, optimize_qiskit_circuit
 
-def build_full_circuit_from_operator(op, nq: int, theta_scale: float = 1.0):
+
+def count_cnots_qiskit(circuit: QuantumCircuit) -> int:
     """
-    Construct a circuit for a Pauli-operator decomposition by appending
-    exp(-i θ_k P_k) for each Pauli term P_k in a fixed order.
-
-    Here `op` is a QubitOperator of the form
-        op = sum_k coeff_k * P_k.
-
-    For each term:
-        θ_k = coeff_k * theta_scale
-
-    The resulting circuit is intended for gate-count estimation rather than
-    high-accuracy simulation, so only the real part of each coefficient is used.
-
-    Warning: Not sure about QubitOperator implementation.
+    Count CNOT gates in a Qiskit circuit.
     """
-    qc = QuantumCircuit(nq)
-    for term, coeff in sorted_terms_pseudo_alphabetical(op):
-        if abs(coeff) < 1e-12:
-            continue
-        theta = float(np.real(coeff)) * theta_scale # This sets the evolution angle for that Pauli term.
-        # For q-hat all coefficients should be real after Hermitian summation.
-        append_pauli_evolution(qc, term, theta)
-    return qc
+    total = 0
+    for instruction, qargs, cargs in circuit.data:
+        if instruction.name == "cx":
+            total += 1
+    return total
 
 
-def run_counts(d_values):
+def qiskit_cnot_count_before_and_after_optimization(
+    op: QubitOperator,
+) -> tuple[int, int]:
     """
-    For each cutoff d in d_values and for each encoding ("sb", "gray", "unary"),
-    compute:
+    Build the Qiskit circuit, optimize it, and return:
 
-    1. the encoded Pauli representation of the bosonic position operator q,
-    2. the naive CNOT count using the rule 2(p-1) for each Pauli string,
-    3. the compiled CNOT count obtained by building and transpiling a circuit.
-
-    Returns
-    -------
-    naive : dict[str, list[int]]
-        Naive CNOT counts for each encoding as a function of d.
-    compiled : dict[str, list[int]]
-        Transpiled CNOT counts for each encoding as a function of d.
+        raw_cnot_count, optimized_cnot_count
     """
-    encodings = ["sb", "gray", "unary"]
+    pre_qiskit_op_circuit = qiskit_circuit(op)
+    pre_op_count = count_cnots_qiskit(pre_qiskit_op_circuit)
 
-    compiled = {enc: [] for enc in encodings} # using qiskit
+    optimized_count, qiskit_op_circuit = optimize_qiskit_circuit(pre_qiskit_op_circuit)
 
-    for d in d_values:
-        print(f"Running d={d}")
-        qmat = bosonic_disp_operator_matrix(d)
-
-        for enc in encodings:
-            op = matrix_to_qubit_operator(qmat, d=d, encoding=enc)
-            nq = n_qubits(d, enc)
-            qc = build_full_circuit_from_operator(op, nq=nq, theta_scale=1.0)
-            compiled_count = cnot_count_of_compiled_circuit(qc, optimization_level=3)
-
-            compiled[enc].append(compiled_count)
-
-            print(
-                f"  {enc:5s} | nq={nq:2d} | #terms={len(op.terms):4d} | "
-                f"compiled CX={compiled_count:5d}"
-            )
-    return compiled
+    return pre_op_count, optimized_count

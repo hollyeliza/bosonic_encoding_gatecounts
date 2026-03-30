@@ -1,55 +1,108 @@
+from __future__ import annotations
+
+from collections.abc import Iterable
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 
-from cnot_counts.qiskit_counts import run_counts 
+from src.pauli_string_formation.mapping import (
+    matrix_to_qubit_operator,
+    pseudo_alphabetical_qubit_operator,
+    bosonic_disp_operator_matrix,
+)
+from src.cnot_counts.qiskit_counts import qiskit_cnot_count_before_and_after_optimization
 
-def plot_qiskit_results(d_values, compiled, title, filename):
+
+def qiskit_counts_for_encoding(
+    d_values: Iterable[int],
+    encoding: str,
+) -> tuple[list[int], list[int], list[int]]:
     """
-    Plot compiled (Qiskit) CNOT counts vs cutoff d for all encodings.
+    For each d:
+      1. build q operator matrix
+      2. map to qubit operator under chosen encoding
+      3. count raw and Qiskit-optimized CNOTs
+
+    Returns
+    -------
+    ds, raw_counts, optimized_counts
     """
-    plt.figure(figsize=(7, 4.5))
+    ds: list[int] = []
+    pre_op_count: list[int] = []
+    optimized_count: list[int] = []
 
-    styles = {
-        "sb":   {"color": "#1c97ef", "linestyle": "-",  "marker": "o"},
-        "gray": {"color": "#d7e727", "linestyle": "--", "marker": "s"},
-        "unary":{"color": "#e66006", "linestyle": "-.", "marker": "^"},
-    }
+    for d in d_values:
+        print(f"[{encoding}] building operator for d={d}")
 
-    labels = {
-        "sb": "Std. binary",
-        "gray": "Gray",
-        "unary": "Unary"
-    }
+        mat = bosonic_disp_operator_matrix(d)
+        op = matrix_to_qubit_operator(mat, d, encoding)
+        op_pseudo = pseudo_alphabetical_qubit_operator(op)
 
-    for enc in ["sb", "gray", "unary"]:
-        plt.plot(
-            d_values,
-            compiled[enc],
-            label=labels[enc],
-            **styles[enc]
-        )
+        raw_cx, opt_cx = qiskit_cnot_count_before_and_after_optimization(op_pseudo)
 
-    plt.xlabel("Bosonic cutoff $d$")
+        print(f"[{encoding}] d={d}: pre-qiskit op cnot count={raw_cx}, post-qiskit op cnot count={opt_cx}")
+
+        ds.append(d)
+        pre_op_count.append(raw_cx)
+        optimized_count.append(opt_cx)
+
+    return ds, pre_op_count, optimized_count
+
+
+def save_plot(
+    results: dict[str, tuple[list[int], list[int], list[int]]],
+    output_path: Path,
+    show_raw: bool = False,
+    logy: bool = False,
+) -> None:
+    """
+    Plot optimized CNOT count vs cutoff d for each encoding.
+    Optionally overlay raw counts.
+    """
+    plt.figure(figsize=(8, 5))
+
+    for encoding, (ds, pre_op_count, optimized_count) in results.items():
+        plt.plot(ds, optimized_count, marker="o", label=f"{encoding} (after optimization)")
+        if show_raw:
+            plt.plot(ds, pre_op_count, marker="o", linestyle="--", label=f"{encoding} (before optimization)")
+
+    plt.xlabel("Cutoff d")
     plt.ylabel("CNOT count")
-    plt.title(title)
+    plt.title("Qiskit pre and post optimized CNOT cost vs cutoff d")
+
+    if logy:
+        plt.yscale("log")
 
     plt.legend()
-    plt.grid(alpha=0.3)
     plt.tight_layout()
+    plt.savefig(output_path, dpi=300)
+    print(f"Saved plot to {output_path}")
 
-    plt.savefig(filename, dpi=200)
-    plt.show()
 
+def main() -> None:
+    encodings = ["sb", "gray", "unary"]
+    d_values = list(range(2, 17))
 
-# ------------------ RUN ------------------
+    results: dict[str, tuple[list[int], list[int], list[int]]] = {}
+
+    for encoding in encodings:
+        results[encoding] = qiskit_counts_for_encoding(
+            d_values=d_values,
+            encoding=encoding,
+        )
+
+    results_dir = Path(__file__).resolve().parents[1] / "results"
+    results_dir.mkdir(exist_ok=True)
+
+    output_path = results_dir / "qiskit_cnot_vs_d.png"
+
+    save_plot(
+        results=results,
+        output_path=output_path,
+        show_raw=True,
+        logy=False,
+    )
+
 
 if __name__ == "__main__":
-    d_values = list(range(2, 32))
-
-    compiled = run_counts(d_values)
-
-    plot_qiskit_results(
-        d_values,
-        compiled,
-        title="Bosonic position operator $q$: compiled CNOT counts (Qiskit)",
-        filename="results/plots/qiskit_compiled_cnot_counts.png",
-    )
+    main()
