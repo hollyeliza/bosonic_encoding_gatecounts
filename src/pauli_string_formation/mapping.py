@@ -1,7 +1,4 @@
 
-# This is preparing the Pauli strings for compilation / optimization in
-# the same way as the paper using QubitOperator class from OpenFermion
-
 from itertools import product
 from openfermion import QubitOperator
 from src.pauli_string_formation.encodings_b import bits_for_level, bitmask_subset, n_qubits
@@ -143,7 +140,6 @@ def matrix_element_to_qubit_operator(
     return op
 
 
-
 def matrix_to_qubit_operator(mat, d: int, encoding: str, tol: float = 1e-14) -> QubitOperator:
     """
     Takes a full dxd operator (logical matrix) and rewrites this as
@@ -160,14 +156,16 @@ def matrix_to_qubit_operator(mat, d: int, encoding: str, tol: float = 1e-14) -> 
     return op
 
 
-def sorted_terms_pseudo_alphabetical(op: QubitOperator):
+def pseudo_alphabetical_qubit_operator(op: QubitOperator) -> QubitOperator:
     """
-    Sort Pauli terms to mimic the SI 'pseudo-alphabetical' ordering:
+    This takes in the QubitOperator Pauli string from the matrix_to_qubit_operator
+    (in other words the bosonic displacement operator in Pauli strings) and 
+    returns a new Pauli string whose terms are inserted in the "pseudo-alphabetical" order
+    that was described in the paper.
 
-    - First by the Pauli acting on the lowest-index qubit
-    - X terms first, then Y, then Z
-    - Then by qubit index structure to keep similar ladders adjacent
+    Returns another QubitOperator (just ordered)
     """
+
     pauli_priority = {"X": 0, "Y": 1, "Z": 2}
 
     def key_fn(item):
@@ -176,69 +174,23 @@ def sorted_terms_pseudo_alphabetical(op: QubitOperator):
         if len(term) == 0:
             return (10_000,)
 
-        # sort term by qubit index (OpenFermion usually already does this)
+        # ensure sorted by qubit index
         term = sorted(term, key=lambda x: x[0])
 
-        # First non-identity Pauli (smallest qubit index)
         first_qubit, first_pauli = term[0]
-
-        # primary: Pauli type on first qubit
         primary = pauli_priority[first_pauli]
 
-        # secondary: qubit positions
         qubit_pattern = tuple(q for q, _ in term)
-
-        # tertiary: Pauli pattern
         pauli_pattern = tuple(pauli_priority[p] for _, p in term)
 
         return (primary, qubit_pattern, pauli_pattern)
 
-    return sorted(op.terms.items(), key=key_fn)
+    # sort terms
+    sorted_items = sorted(op.terms.items(), key=key_fn)
 
+    # rebuild operator in that order
+    new_op = QubitOperator()
+    for term, coeff in sorted_items:
+        new_op += QubitOperator(term, coeff)
 
-# What the paper did before synthesizing quantum circuits (Using QubitOperator class):
-
-# 1. Collected coefficients and cancelled Pauli terms - when you add strings corresponding to differet
-# transitions to the op this happensn automatically (baked into class def) - tested
-
-# 2. Pauli terms listed in pseudo-alphabetical order such that terms containing Pauli
-# x on qubit 0 are listed first followed by Pauli's on qubit 0 and then same for 
-# qubit 2, 3 etc.
-
-
-# mat1 = bosonic_disp_operator_matrix(9)
-# test = matrix_to_qubit_operator(mat1, 9, "sb")
-# sorted = sorted_terms_pseudo_alphabetical(test)
-
-# print(test)
-# print(sorted)
-
-
-# Below functions calculate the number of Pauli's by looking through the strings and
-# deducing manually. They should get the same CNOT count as the equation in the paper
-# but will not reproduce the plots as these were formed after applying an optimization
-# procedure outlined in the paper to reduce the CNOT count.
-
-# def pauli_length(term) -> int:
-#     """"
-#     Returns the Pauli length of eaxh term in the string, 
-#     which is how many qubits this Pauli string acts on nontrivially.
-#     """
-#     return len(term)
-
-
-# def naive_cnot_count_from_qubit_operator(op: QubitOperator) -> int:
-#     """
-#     Count naive CNOTs term-by-term using 2(p-1) for each Pauli string of length p>1.
-#     Assumes each Pauli string is implemented separately with a standard CNOT ladder.
-#     p - 1 CNOTs to collect parity onto one qubit before applying Rz rotation and 
-#     reverse chain of another p-1 CNOTs -> total is 2(p-1) CNOTs per string.
-#     """
-#     total = 0
-#     for term, coeff in op.terms.items():
-#         if abs(coeff) < 1e-12:
-#             continue
-#         p = pauli_length(term)
-#         if p > 1:
-#             total += 2 * (p - 1) 
-#     return total
+    return new_op
