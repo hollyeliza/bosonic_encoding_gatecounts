@@ -1,7 +1,7 @@
 import math
 import cirq
 from openfermion import QubitOperator
-from src.pauli_string_formation.mapping import matrix_element_to_qubit_operator
+from src.pauli_string_formation.mapping import matrix_element_to_qubit_operator, pseudo_alphabetical_qubit_operator
 
 
 def cirq_qubits(op: QubitOperator) -> dict[int, cirq.Qid]:
@@ -49,10 +49,11 @@ def cirq_qubits(op: QubitOperator) -> dict[int, cirq.Qid]:
 
     return qubit_map
 
-trial = matrix_element_to_qubit_operator(5, 6, 2, 8, "gray")
-print(f'Pauli string for single transition: {trial}') # hmm already sorted without pseudo
-trial_2 = cirq_qubits(trial)
-print(f'cirq mapping: {trial_2}')
+# trial = matrix_element_to_qubit_operator(5, 6, 2, 8, "gray")
+# trial_ordered = pseudo_alphabetical_qubit_operator(trial)
+# print(f'Pauli string for single transition: {trial_ordered}') # hmm already sorted without pseudo
+# trial_2 = cirq_qubits(trial_ordered)
+# print(f'cirq mapping: {trial_2}')
 
 
 
@@ -117,7 +118,8 @@ def cirq_circuit(ordered_terms: QubitOperator) -> tuple[cirq.Circuit, dict[int, 
     parity onto the last qubit.
 
     Each term is compiled as exp(-i * theta * P), where theta is taken from the 
-    coefficient.
+    coefficient. There should be no non-Hermitian terms because I took the h.c. 
+    in mapping.matrix_element_to_qubit_operator.
 
     Parameters
     ----------
@@ -136,15 +138,6 @@ def cirq_circuit(ordered_terms: QubitOperator) -> tuple[cirq.Circuit, dict[int, 
     for term, coeff in ordered_terms.terms.items():
         # term = ((0, 'X'), (2, 'Y'))
         # coeff = 0.3
-        if len(term) == 0: # means identity
-            continue
-
-        if abs(coeff.imag) > 1e-12: # There should be no non-Hermitian terms because I took the h.c. in mapping.matrix_element_to_qubit_operator
-            raise ValueError(
-                f"Term {term} has complex coefficient {coeff}. "
-                "Expected real coefficients for unitary evolution."
-            )
-
         theta = coeff.real # the phase angle used for the globl phase on last qubit after all entangled with CNOTs
 
         qubits = [qubit_map[q] for q, _ in term] # the cirq qubit associted with the term
@@ -175,8 +168,8 @@ def cirq_circuit(ordered_terms: QubitOperator) -> tuple[cirq.Circuit, dict[int, 
 
     return circuit, qubit_map
 
-trial_3_circuit,  trial_3_qubit_map = cirq_circuit(trial) # Trial for one transition
-print(type(trial_3_circuit))
+# trial_3_circuit,  trial_3_qubit_map = cirq_circuit(trial) # Trial for one transition
+# print(type(trial_3_circuit))
 
 
 def optimize_cirq_circuit(circuit: cirq.Circuit) -> cirq.Circuit:
@@ -217,17 +210,7 @@ def optimize_cirq_circuit(circuit: cirq.Circuit) -> cirq.Circuit:
     return optimized
 
 
-def count_cnots(circuit: cirq.Circuit) -> int:
-    """
-    Count exact CNOT gates in a Cirq circuit.
-    Note: cirq circuit returns a tuple where the first term is the actual cirq circuit. Make sure
-    that you feed the first term only into this function.
-    """
-    total = 0
-    for op in circuit.all_operations():
-        if isinstance(op.gate, cirq.CNotPowGate) and abs(op.gate.exponent - 1) < 1e-12:
-            total += 1
-    return total
+
 
 # circuit is being treated as QubitOoperator but circuit is a cirq.circuit with these attributes...
 

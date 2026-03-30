@@ -1,9 +1,23 @@
 import math
 import cirq
 from openfermion import QubitOperator
-from optimize.cirq_comp_op import qubit_operator_to_trotter_circuit, optimize_cirq_circuit, count_cnots
+from src.optimize.cirq_comp_op import cirq_circuit, optimize_cirq_circuit
 
-def cirq_cnot_count_after_optimization(
+
+def count_cnots_cirq(circuit: cirq.Circuit) -> int:
+    """
+    Count exact CNOT gates in a Cirq circuit.
+    Note: cirq circuit returns a tuple where the first term is the actual cirq circuit. Make sure
+    that you feed the first term only into this function.
+    """
+    total = 0
+    for op in circuit.all_operations():
+        if isinstance(op.gate, cirq.CNotPowGate) and abs(op.gate.exponent - 1) < 1e-12:
+            total += 1
+    return total
+
+
+def cirq_cnot_count_before_and_after_optimization(
     op: QubitOperator,
     time: float = 1.0,
     term_order: str = "default",
@@ -13,15 +27,16 @@ def cirq_cnot_count_after_optimization(
 
         raw_cnot_count, optimized_cnot_count, raw_circuit, optimized_circuit
     """
-    raw_circuit, qubit_map = qubit_operator_to_trotter_circuit(
-        op,
-        time=time,
-        term_order=term_order,
-    )
 
-    optimized_circuit = optimize_cirq_circuit(raw_circuit)
+    # Remember that cirq_circuit returns a tuple so we need to first unpack the 
+    # cirq circuit and qubit_map. Although qubit map is not really used so maybe
+    # it is better for cirq_circuit to just return the actual circuit lol
 
-    raw_count = count_cnots(raw_circuit)
-    optimized_count = count_cnots(optimized_circuit)
+    pre_cirq_op_circuit, cirq_qubit_map = cirq_circuit(op)
 
-    return raw_count, optimized_count, raw_circuit, optimized_circuit
+    cirq_op_circuit = optimize_cirq_circuit(pre_cirq_op_circuit)
+
+    pre_op_count = count_cnots_cirq(pre_cirq_op_circuit)
+    optimized_count = count_cnots_cirq(cirq_op_circuit)
+
+    return pre_op_count, optimized_count
