@@ -17,11 +17,7 @@ def count_cnots_cirq(circuit: cirq.Circuit) -> int:
     return total
 
 
-def cirq_cnot_count_before_and_after_optimization(
-    op: QubitOperator,
-    time: float = 1.0,
-    term_order: str = "default",
-) -> tuple[int, int, cirq.Circuit, cirq.Circuit]:
+def cirq_cnot_count_before_and_after_optimization(op: QubitOperator) -> tuple[int, int, cirq.Circuit, cirq.Circuit]:
     """
     Build the Cirq Trotter circuit, optimize it, and return:
 
