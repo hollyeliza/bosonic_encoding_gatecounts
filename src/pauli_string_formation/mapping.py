@@ -108,6 +108,8 @@ def matrix_element_to_qubit_operator(
     a sum over matrix elements |l><lp|. This function takes one such element and
     maps it into qubit space using the chosen encoding (standard binary, Gray, or unary).
 
+    For diagonal terms, include the term only once.
+
     Parameters
     ----------
     l : int
@@ -133,6 +135,11 @@ def matrix_element_to_qubit_operator(
     """
 
     op_forward = single_matrix_element_to_qubit_operator(l, lp, coeff, d, encoding)
+
+    if l == lp:
+        op_forward.compress(abs_tol=1e-12)
+        return op_forward
+
     op_backward = single_matrix_element_to_qubit_operator(lp, l, coeff.conjugate(), d, encoding)
 
     op = op_forward + op_backward
@@ -194,3 +201,7 @@ def pseudo_alphabetical_qubit_operator(op: QubitOperator) -> QubitOperator:
         new_op += QubitOperator(term, coeff)
 
     return new_op
+
+print(f'Diagonal term trial: {matrix_element_to_qubit_operator(5, 5)}')
+print(f'Off diagonal term trial: {matrix_element_to_qubit_operator(5, 6)}')
+
