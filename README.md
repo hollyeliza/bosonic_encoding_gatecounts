@@ -17,6 +17,21 @@ counts obtained in the paper for the encodings.
 - Synthesizes circuits and counts CNOT gates (naive equation way and using compilation)
 - 'Tries to' reproduce scaling trends in the paper
 
+
+## File structure
+
+Note: Since all changed - need to update
+
+src/
+- encodings_b.py        # bit encodings (unary, Gray, binary)
+- mapping.py            # maps |l><l'| → Pauli strings
+- bosonic_ops.py        # constructs bosonic operators (e.g. q)
+- gate_count.py         # CNOT counting utilities
+
+tests/
+- test_mapping.py       # unit tests for mapping functions
+
+
 ## To do
 
 1. Equation in paper cnot counts and plot
@@ -38,25 +53,6 @@ counts obtained in the paper for the encodings.
 8. Pylint
 
 9. Clean up the README (use it for the paper)
-
-## File structure
-
-Note: Since all changed - need to update
-
-src/
-- encodings_b.py        # bit encodings (unary, Gray, binary)
-- mapping.py            # maps |l><l'| → Pauli strings
-- bosonic_ops.py        # constructs bosonic operators (e.g. q)
-- gate_count.py         # CNOT counting utilities
-
-tests/
-- test_mapping.py       # unit tests for mapping functions
-
-
-## Key idea
-
-Bosonic operators are sparse in the Fock basis but become non-local 
-when mapped to qubits. This project quantifies the resulting gate overhead.
 
 
 ## Setup
