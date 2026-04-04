@@ -32,29 +32,6 @@ tests/
 - test_mapping.py       # unit tests for mapping functions
 
 
-## To do
-
-1. Equation in paper cnot counts and plot
-
-2. Optimization in paper cnot counts and plot
-
-3. I remove the double counting of the diagonal but there didn't seem to be a change in the counting
-
-4. Write out optimisation process for cirq in wiki and the entire workflow to get the counts (will repeat same pattern for qiskit and papers)
-
-- unsure if the crirq optimization has done anything as the count before and after seems to be the same ...
-
-5. Cleanly write out the intuition of the CNOT ladder
-
-6. Fully write out the wiki
-
-7. Write tests
-
-8. Pylint
-
-9. Clean up the README (use it for the paper)
-
-
 ## Setup
 
 ```bash
