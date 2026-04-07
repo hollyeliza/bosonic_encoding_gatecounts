@@ -25,10 +25,14 @@ Refer to the Wiki.
 Note: Since all changed - need to update
 
 src/
-- pauli_string_formation.py # maps bosonic displacement operator to sum of pauli strings for different encodings (unary, Gray, binary)
-- cnot_counts.py            # counts no. of entangling (cnot) gates to implement bosonic displacement operator on all-qubit quantum computer
-- optimize.py        # optimization procedures to cut down the number of cnot gates (qiskit, cirq, paper rationale)
-- plotting.py         # reproduces plots for CNOT count vs phonon occupation number
+- pauli_string_formation.py 
+maps bosonic displacement operator to sum of pauli strings for different encodings (unary, Gray, binary)
+- cnot_counts.py            
+counts no. of entangling (cnot) gates to implement bosonic displacement operator on all-qubit quantum computer
+- optimize.py        
+optimization procedures to cut down the number of cnot gates (qiskit, cirq, paper rationale)
+- plotting.py        
+reproduces plots for CNOT count vs phonon occupation number
 
 tests/
 - test_mapping.py       # unit tests for mapping functions
