@@ -9,6 +9,8 @@ The unoptimized CNOT counts are looked at alongside different optimization metho
 (the way the paper described and also qiskit and cirq) to try and recreate the CNOT
 counts obtained in the paper for the encodings.
 
+Refer to the Wiki.
+
 ## What this does
 
 - Constructs truncated bosonic displacement operator
@@ -23,10 +25,10 @@ counts obtained in the paper for the encodings.
 Note: Since all changed - need to update
 
 src/
-- encodings_b.py        # bit encodings (unary, Gray, binary)
-- mapping.py            # maps |l><l'| → Pauli strings
-- bosonic_ops.py        # constructs bosonic operators (e.g. q)
-- gate_count.py         # CNOT counting utilities
+- pauli_string_formation.py # maps bosonic displacement operator to sum of pauli strings for different encodings (unary, Gray, binary)
+- cnot_counts.py            # counts no. of entangling (cnot) gates to implement bosonic displacement operator on all-qubit quantum computer
+- optimize.py        # optimization procedures to cut down the number of cnot gates (qiskit, cirq, paper rationale)
+- plotting.py         # reproduces plots for CNOT count vs phonon occupation number
 
 tests/
 - test_mapping.py       # unit tests for mapping functions
