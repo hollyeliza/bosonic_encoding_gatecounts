@@ -23,7 +23,14 @@ def test_n_qubits_sb():
 def test_sb_bits():
     assert sb_bits(0, 8) == [0, 0, 0]
     assert sb_bits(1, 8) == [1, 0, 0]
+    assert sb_bits(8, 9) == [0, 0, 0, 1]
     assert sb_bits(3, 32) == [1, 1, 0, 0, 0] # [00011] in reality but read left to right - most important bit (representing 2^0) usually far right
+
+
+def test_sb_bits_invalid_level():
+    with pytest.raises(ValueError):
+        sb_bits(5, 4)
+        sb_bits(5, 5)
 
 
 def test_gray_int():
@@ -45,7 +52,12 @@ def test_unary_bits():
     assert unary_bits(0, 4) == [1, 0, 0, 0]
     assert unary_bits(2, 4) == [0, 0, 1, 0]
     assert unary_bits(3, 4) == [0, 0, 0, 1]
+    assert unary_bits(3, 7) == [0, 0, 0, 1, 0, 0, 0]
 
+def test_unary_bits_invalid_level():
+    with pytest.raises(ValueError):
+        sb_bits(5, 4)
+        sb_bits(5, 5)
 
 def test_bitmask_subset_sb_and_gray():
     assert bitmask_subset(2, 8, "sb") == {0, 1, 2}
