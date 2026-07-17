@@ -204,6 +204,28 @@ def matrix_to_qubit_operator(mat, d: int, encoding: str, tol: float = 1e-14) -> 
     return op
 
 
+def pauli_length(term) -> int:
+    """
+    Return the number of non-identity Paulis in an OpenFermion term.
+    """
+    return len(term)
+
+
+def naive_cnot_count_from_qubit_operator(op: QubitOperator) -> int:
+    """
+    Estimate the CNOT count for synthesizing each Pauli string independently.
+
+    A Pauli string acting on k qubits uses a CNOT ladder and uncompute with
+    2 * (k - 1) CNOTs. Identity and single-qubit terms need no CNOTs.
+    """
+    count = 0
+    for term in op.terms:
+        length = pauli_length(term)
+        if length > 1:
+            count += 2 * (length - 1)
+    return count
+
+
 def pseudo_alphabetical_qubit_operator(op: QubitOperator) -> QubitOperator:
     """
     This takes in the QubitOperator Pauli string from the matrix_to_qubit_operator
