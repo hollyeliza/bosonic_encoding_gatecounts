@@ -2,6 +2,9 @@
 .venv/
 venv/
 
+# Optional local checkout used by validation notebooks
+bosonic-qiskit/
+
 # Python cache
 __pycache__/
 *.pyc
@@ -15,6 +18,9 @@ __pycache__/
 # Generated outputs (optional but recommended)
 *.png
 *.pdf
+# Generated plot/count data. Force-add result JSON files when they should be
+# kept with an analysis notebook.
+*.json
 
 # Qiskit / transpilation temp files (rare but safe)
 *.qasm

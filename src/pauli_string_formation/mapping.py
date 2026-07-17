@@ -1,20 +1,33 @@
-
 from itertools import product
 from openfermion import QubitOperator
-from src.pauli_string_formation.encodings_b import bits_for_level, bitmask_subset, n_qubits
-from src.pauli_string_formation.bosonic_disp import bosonic_disp_operator_matrix
+from src.pauli_string_formation.encodings_b import bits_for_level, bitmask_subset
 
 def one_qubit_map(x: int, xp: int):
     """
-    Return the Pauli decomposition of the single-qubit operators:
+    Returns the Pauli decomposition of the single-qubit operators:
     |x><xp| (|0><0|,|1><1|, |1><0|, |1><1|)
-
-    The result is a list of (pauli_label, coefficient), where
-    pauli_label ∈ {"I", "X", "Y", "Z"}.
 
     This is the building block used to construct multi-qubit Pauli
     strings for encoded transitions |R(l)><R(l')|.
+
+    Parameters
+    ----------
+    x : int
+        Computational-basis value of the ket state. Must be either 0 or 1.
+    xp : int
+        Computational-basis value of the bra state. Must be either 0 or 1.
+
+    Returns
+    -------
+    list of tuples (pauli_label, coefficient), where 
+    pauli_label ∈ {"I", "X", "Y", "Z"}.
+
+    Raises
+    ------
+    ValueError
+        If either ``x`` or ``xp`` is not 0 or 1.
     """
+
     if x == 0 and xp == 1:
         return [("X", 0.5), ("Y", 0.5j)]
     if x == 1 and xp == 0:
@@ -25,22 +38,21 @@ def one_qubit_map(x: int, xp: int):
         return [("I", 0.5), ("Z", -0.5)]
     raise ValueError("Bits must be 0 or 1.")
 
-# print(one_qubit_map(1,0))
-
 
 def single_matrix_element_to_qubit_operator(
     l: int, lp: int, coeff: complex, d: int, encoding: str
 ) -> QubitOperator:
     """
     Builds a QubitOperator object for a given transition - in other words converts a 
-    single bosonic matrix element coeff * |l><lp| into a sum of Pauli strings acting on 
+    single bosonic matrix element (coeff * |l><lp|) into a sum of Pauli strings acting on 
     qubits (we need to do this for all transitions to get a big string of Pauli strings!).
 
-    'single' as h.c. logic in next function.
+    In other words: The total bosonic operator (written in the truncated Fock basis) can be 
+    decomposed as a sum over matrix elements |l><lp|. This function takes one such element, 
+    encodes each state, and maps the element into qubit space. The result depends on the chosen 
+    encoding.
 
-    A bosonic operator written in the truncated Fock basis can be decomposed as
-    a sum over matrix elements |l><lp|. This function takes one such element and
-    maps it into qubit space using the chosen encoding (standard binary, Gray, or unary).
+    'single' as h.c. logic in next function.
 
     Parameters
     ----------
@@ -64,82 +76,84 @@ def single_matrix_element_to_qubit_operator(
         From QubitOperator class docstring:  A QubitOperator represents a sum 
         of terms acting on qubits and overloads operations for easy manipulation 
         of these objects by the user.
+
+    Notes
+    -------
+    This is probably the most important function here.
+
     """
     bits_l = bits_for_level(l, d, encoding)
     bits_lp = bits_for_level(lp, d, encoding)
-    # You do not need to act on every qubit if the encoding is noncompact:
-    support = sorted(bitmask_subset(l, d, encoding) | bitmask_subset(lp, d, encoding)) 
-    local_choices = [] # the unique, sorted qubit numbers of relvant qubits
+    support = sorted(bitmask_subset(l, d, encoding) | bitmask_subset(lp, d, encoding)) # all for compact encodings
+    local_choices = [] 
     for q in support:
-        local_choices.append(one_qubit_map(bits_l[q], bits_lp[q])) # a list of a list of pauli terms for each relevant qubit (in support) 
-    # print(local_choices)
-    # [[('X', 0.5), ('Y', (-0-0.5j))], [('X', 0.5), ('Y', 0.5j)]] This is the one qubit operation on 5 and 6 (rest identity)
+        local_choices.append(one_qubit_map(bits_l[q], bits_lp[q])) # a list of pauli terms (like 1/2( X + iY) for each relevant qubit (in support) 
 
-    op = QubitOperator() # A sum of Pauli strings represented nicely
-    # making an object of type QubitOperator to store the Pauli string which has many attributes
-        # the operation on each qubit for a single transition is a single matrix (mix of X, Y, Z)
-        # the tensor product is taken which results in Pauli strings (actual product of X, Y, Z correspondong to sequential application) 
-        # This expands the tensor product. There are lots terms to mulitply out / combinations
-        # I was caught up with the 'combination' but it is just how the X, Y, Z combine and need to, to multiply out tensor product
+    op = QubitOperator() 
 
-    for choice_tuple in product(*local_choices):
+    for pauli_assignment in product(*local_choices): # * breaks up the list and product expands pauli terms to get all possible strings (each term acts across multiple qubits)
+        # pauli_assigment is one possible pauli string (no coefficient yet)
         term = []
-        total_coeff = coeff
-        for qubit, (pauli, c) in zip(support, choice_tuple):
+        total_coeff = coeff # from position_operator_matrix
+        for qubit, (pauli, c) in zip(support, pauli_assignment):
+            # zip(support, pauli_assignment): zip({0, 1}, ("X", 0.5)  ("Y", 0.5j)) --> (0, ("X", 0.5)), 1, ("Y", 0.5j)
+            # pauli: X/ Y/ Z/ I & c: 0.5 or 0.5j
             total_coeff *= c
             if pauli != "I":
                 term.append((qubit, pauli))
         op += QubitOperator(tuple(term), total_coeff)
     return op
 
-# print(f'In unary: {matrix_element_to_qubit_operator(5, 6, 7, 12, "unary")}') # only qubits 5 and 6 involved - more local as less in support 
-
-# print(f'In gray: {matrix_element_to_qubit_operator(5, 6, 7, 12, "gray")}')
 
 def matrix_element_to_qubit_operator(
     l: int, lp: int, coeff: complex, d: int, encoding: str
 ) -> QubitOperator:
     """
-    Builds a QubitOperator object for a given transition - in other words converts a 
-    single bosonic matrix element coeff * |l><lp| into a sum of Pauli strings acting on 
-    qubits (we need to do this for all transitions to get a big string of Pauli strings!).
+    Map a bosonic matrix element to a Hermitian qubit operator.
 
-    A bosonic operator written in the truncated Fock basis can be decomposed as
-    a sum over matrix elements |l><lp|. This function takes one such element and
-    maps it into qubit space using the chosen encoding (standard binary, Gray, or unary).
+    Converts the matrix element
 
-    For diagonal terms, include the term only once.
+        coeff * |l><lp|
+
+    into its encoded Pauli representation. For off-diagonal elements, the
+    Hermitian-conjugate term is added automatically:
+
+        coeff * |l><lp| + coeff.conjugate() * |lp><l|.
+
+    Diagonal elements are included only once. Pauli terms with coefficients
+    smaller than ``1e-12`` in magnitude are removed using
+    :meth:`QubitOperator.compress`.
 
     Parameters
     ----------
     l : int
-        Initial logical bosonic level.
+        Bosonic basis-state index associated with the ket ``|l>``.
     lp : int
-        Final logical bosonic level.
+        Bosonic basis-state index associated with the bra ``<lp|``.
     coeff : complex
-        Coefficient multiplying |l><lp|.
+        Coefficient multiplying the matrix element ``|l><lp|``.
     d : int
-        Bosonic cutoff dimension.
+        Dimension of the truncated bosonic Hilbert space.
     encoding : str
-        Encoding used to map bosonic levels to qubits.
-        Supported values: "sb", "gray", "unary".
+        Qubit encoding used to represent the bosonic basis states.
 
     Returns
     -------
     QubitOperator
-        The Pauli-string expansion of coeff * |l><lp| in the chosen encoding.
-        
-        From QubitOperator class docstring:  A QubitOperator represents a sum 
-        of terms acting on qubits and overloads operations for easy manipulation 
-        of these objects by the user.
-    """
+        Hermitian Pauli decomposition of the encoded matrix element.
 
+    Notes
+    -----
+    The phase-space quadrature operators have zero diagonal matrix elements,
+    so the diagonal branch is mainly relevant for other bosonic operators
+    that may be added to the codebase later.
+    """
     op_forward = single_matrix_element_to_qubit_operator(l, lp, coeff, d, encoding)
 
-    if l == lp:
+    if l == lp: # Do not include the hermitian conjugate for the diagonal terms
         op_forward.compress(abs_tol=1e-12)
         return op_forward
-
+    
     op_backward = single_matrix_element_to_qubit_operator(lp, l, coeff.conjugate(), d, encoding)
 
     op = op_forward + op_backward
@@ -149,18 +163,67 @@ def matrix_element_to_qubit_operator(
 
 def matrix_to_qubit_operator(mat, d: int, encoding: str, tol: float = 1e-14) -> QubitOperator:
     """
-    Takes a full dxd operator (logical matrix) and rewrites this as
-    a sum of Pauli strings on each qubit.
+    Convert a full bosonic operator (given as a d x d matrix) into a QubitOperator.
+
+    Parameters
+    ----------
+    mat : array-like (d x d)
+        Matrix representation of the bosonic operator in the truncated Fock basis.
+        The bosonic displacement matrix is tri-diagonal (only adjacent states
+        connected and so most entries in this are equal to 0).
+    d : int
+        Bosonic cutoff dimension (d = N_max + 1)
+    encoding : str
+        Encoding used to map bosonic levels to qubits.
+        Supported values: "sb", "gray", "unary".
+    tol : float, optional
+        Threshold below which matrix elements are treated as zero (default: 1e-14).
+
+    Returns
+    -------
+    QubitOperator
+        Sum of Pauli strings representing the full operator in qubit space.
+
+    Notes
+    -------
+    
+    Only the diagonal and upper-triangular matrix elements are processed.
+    For each off-diagonal element, the corresponding lower-triangular
+    Hermitian-conjugate term is added automatically by
+    ``matrix_element_to_qubit_operator``. Processing the full matrix would
+    therefore double count the off-diagonal contributions.
     """
     op = QubitOperator()
     for l in range(d):
-        for lp in range(d):
+        for lp in range(l, d): # only half the triangle
             coeff = mat[l, lp]
             if abs(coeff) > tol: # If the matrix element is numerically tiny, do nothing.
                 # print(f'next: {op}')
                 op += matrix_element_to_qubit_operator(l, lp, coeff, d, encoding) # Convert that one matrix element into Pauli strings
     op.compress(abs_tol=1e-12) # combines duplicate strings and removes very tiny coefficients
     return op
+
+
+def pauli_length(term) -> int:
+    """
+    Return the number of non-identity Paulis in an OpenFermion term.
+    """
+    return len(term)
+
+
+def naive_cnot_count_from_qubit_operator(op: QubitOperator) -> int:
+    """
+    Estimate the CNOT count for synthesizing each Pauli string independently.
+
+    A Pauli string acting on k qubits uses a CNOT ladder and uncompute with
+    2 * (k - 1) CNOTs. Identity and single-qubit terms need no CNOTs.
+    """
+    count = 0
+    for term in op.terms:
+        length = pauli_length(term)
+        if length > 1:
+            count += 2 * (length - 1)
+    return count
 
 
 def pseudo_alphabetical_qubit_operator(op: QubitOperator) -> QubitOperator:
@@ -170,25 +233,42 @@ def pseudo_alphabetical_qubit_operator(op: QubitOperator) -> QubitOperator:
     returns a new Pauli string whose terms are inserted in the "pseudo-alphabetical" order
     that was described in the paper.
 
+    Recall QubitOperator(term, coefficient). 
+    The 'term' is a tuple of (qubit_index, Pauli_letter) like ((0, "X"), (2, "Z")) and the 
+    'coefficient' is the coefficient in front of this Pauli string. If the 'term' contains
+    no entries, it consists entirely on Identities and so it pushed to the end of the 
+    "pseudo-alphabetized" Pauli Strings.
+
     Returns another QubitOperator (just ordered)
+
+    Notes
+    -------
+
+    The pseudo-alphabetical ordering used by Sawaya groups structurally similar Pauli strings 
+    next to one another, for example terms beginning with X_0, then terms beginning with 
+    Y_0, then Z_0, before moving to strings whose first non-identity Pauli appears on a
+    higher-index qubit. This ordering is useful because similar neighbouring Pauli strings increase 
+    the chance of gate cancellations after the corresponding CNOT ladders are constructed. 
     """
 
-    pauli_priority = {"X": 0, "Y": 1, "Z": 2}
+    pauli_priority = {"X": 0, "Y": 1, "Z": 2} # X before Y before Z (for each qubit)
 
     def key_fn(item):
         term, coeff = item
 
         if len(term) == 0:
-            return (10_000,)
+            return (10_000,) # pushes identity terms to the end
 
-        # ensure sorted by qubit index
+        # ensure each Pauli String (multi-qubit operator) is sorted by qubit index
         term = sorted(term, key=lambda x: x[0])
 
         first_qubit, first_pauli = term[0]
-        primary = pauli_priority[first_pauli]
+        primary = pauli_priority[first_pauli] # Converts the first Pauli letter into its sorting priority using pauli_priority
 
         qubit_pattern = tuple(q for q, _ in term)
-        pauli_pattern = tuple(pauli_priority[p] for _, p in term)
+        # qubit_pattern: [(1, "Z"), (3, "X")] becomes (1, 3)
+        pauli_pattern = tuple(pauli_priority[p] for _, p in term) 
+        # pauli_pattern: [(1, "Z"), (3, "X")] becomes (2, 0)
 
         return (primary, qubit_pattern, pauli_pattern)
 
@@ -202,6 +282,21 @@ def pseudo_alphabetical_qubit_operator(op: QubitOperator) -> QubitOperator:
 
     return new_op
 
-print(f'Diagonal term trial: {matrix_element_to_qubit_operator(5, 5)}')
-print(f'Off diagonal term trial: {matrix_element_to_qubit_operator(5, 6)}')
 
+# op = (
+#     QubitOperator(((0, "X"), (1, "Z")), 1.0)
+#     + QubitOperator(((0, "Y"), (1, "Z")), 1.0)
+#     + QubitOperator(((0, "Z"), (1, "Z")), 1.0)
+#     + QubitOperator(((0, "X"), (2, "Z")), 1.0)
+#     + QubitOperator(((0, "Y"), (2, "Z")), 1.0)
+#     + QubitOperator(((0, "Z"), (2, "Z")), 1.0)
+# )
+
+# print("Original operator:")
+# for term, coeff in op.terms.items():
+#     print(term, coeff)
+
+# print("\nAfter pseudo-alphabetical ordering:")
+# sorted_op = pseudo_alphabetical_qubit_operator(op)
+# for term, coeff in sorted_op.terms.items():
+#     print(term, coeff)

@@ -8,7 +8,6 @@ from pauli_string_formation.mapping import (
     naive_cnot_count_from_qubit_operator,
 )
 
-
 def test_one_qubit_map_01():
     assert one_qubit_map(0, 1) == [("X", 0.5), ("Y", 0.5j)]
 
@@ -34,10 +33,8 @@ def test_matrix_element_to_qubit_operator_unary_5_to_6():
     op = matrix_element_to_qubit_operator(5, 6, 1.0, 12, "unary")
 
     expected = (
-        QubitOperator("X5 X6", 0.25)
-        + QubitOperator("X5 Y6", 0.25j)
-        + QubitOperator("Y5 X6", -0.25j)
-        + QubitOperator("Y5 Y6", 0.25)
+        QubitOperator("X5 X6", 0.5)
+        + QubitOperator("Y5 Y6", 0.5)
     )
 
     assert op == expected
@@ -57,13 +54,14 @@ def test_matrix_element_to_qubit_operator_unary_diagonal():
     assert op.terms[()] == 0.5
 
 
-def test_matrix_element_to_qubit_operator_gray_adjacent_levels_has_single_qubit_support(): # Failed
+def test_matrix_element_to_qubit_operator_gray_adjacent_levels_uses_compact_support():
     op = matrix_element_to_qubit_operator(5, 6, 1.0, 16, "gray")
 
-    # 5 -> 6 in Gray should differ by one bit only, so every non-identity term
-    # should act on exactly one qubit.
+    # 5 -> 6 in Gray differs by one flipped bit, so every non-identity term
+    # contains X on that flipped qubit. Unchanged compact-encoding qubits can
+    # still contribute I/Z factors from |b><b|.
     for term in op.terms:
-        assert len(term) <= 1
+        assert (1, "X") in term
 
 
 def test_pauli_length():
