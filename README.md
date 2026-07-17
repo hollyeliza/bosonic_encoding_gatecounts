@@ -158,3 +158,27 @@ The intended workflow is:
 - `results/sawaya_ella.ipynb`: original exploratory Sawaya comparison notebook.
 - `results/sawaya_ella_codex.ipynb`: cleaned Sawaya comparison notebook for
   analyzing displacement CNOT counts inside the larger Hamiltonian estimate.
+- `results/eq_paper_cnot.ipynb`: inspects equation-style count results.
+- `results/num_paper_cnot.ipynb`: inspects numerical paper-style count results.
+- `src/bosonic_validation/displacement.ipynb`: visually checks encoded
+  displacement circuits using Wigner plots.
+
+## Tests
+
+Run the project tests with `src` on `PYTHONPATH`:
+
+```bash
+PYTHONPATH=src pytest tests
+```
+
+The `pytest.ini` file keeps test discovery scoped to this repository's tests
+and skips an optional local `bosonic-qiskit/` checkout.
+
+## Notes
+
+- The main operator used for gate counts is the position quadrature
+  `q = (a + a†) / sqrt(2)`.
+- The momentum quadrature is also implemented in `ps_quadratures.py`, but most
+  counting scripts currently focus on the position operator.
+- For large cutoffs, Qiskit optimization can be slow. Start with small
+  `d_values` before running a long sweep.
