@@ -59,8 +59,9 @@ tests/
   test_mapping.py
 ```
 
-The `bosonic-qiskit/` directory is vendored for validation notebooks and Wigner
-plotting experiments.
+The optional `bosonic-qiskit/` directory is used only for validation notebooks
+and Wigner plotting experiments. It is not required for the main CNOT-count
+workflow.
 
 ## Setup
 
@@ -72,9 +73,15 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If you use the validation notebook, make sure the vendored `bosonic-qiskit`
-package is available on the notebook path. The notebook handles this when run
-from inside the repository.
+If you use the validation notebook, clone `bosonic-qiskit` into the project
+root first:
+
+```bash
+git clone https://github.com/C2QA/bosonic-qiskit.git
+```
+
+The validation notebook adds `bosonic-qiskit/src` to the notebook path when run
+from inside this repository.
 
 ## Generate Qiskit CNOT Counts
 
@@ -151,4 +158,3 @@ The intended workflow is:
 - `results/sawaya_ella.ipynb`: original exploratory Sawaya comparison notebook.
 - `results/sawaya_ella_codex.ipynb`: cleaned Sawaya comparison notebook for
   analyzing displacement CNOT counts inside the larger Hamiltonian estimate.
-

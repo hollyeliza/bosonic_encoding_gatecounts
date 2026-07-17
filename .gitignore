@@ -2,6 +2,9 @@
 .venv/
 venv/
 
+# Optional local checkout used by validation notebooks
+bosonic-qiskit/
+
 # Python cache
 __pycache__/
 *.pyc
