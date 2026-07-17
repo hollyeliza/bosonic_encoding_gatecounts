@@ -8,7 +8,6 @@ from pauli_string_formation.mapping import (
     naive_cnot_count_from_qubit_operator,
 )
 
-
 def test_one_qubit_map_01():
     assert one_qubit_map(0, 1) == [("X", 0.5), ("Y", 0.5j)]
 

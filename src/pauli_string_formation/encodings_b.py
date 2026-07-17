@@ -15,6 +15,7 @@ def n_qubits_sb(d: int) -> int:
     """
     return math.ceil(math.log2(d))
 
+# print(f'The number of qubits required to encode Fock states up to N_max 5: {n_qubits_sb(6)}' )
 
 def sb_bits(l: int, d: int) -> list[int]:
     """
@@ -40,6 +41,7 @@ def sb_bits(l: int, d: int) -> list[int]:
         # print(f'i = {i}, extracted bit = {last_bit}, bitstring so far = {bitstring}')
     return bitstring # you read bits from right to left!
 
+# print(f"the sb representation of 5: {sb_bits(3, 6)} (expect [1, 1, 0]")
 
 def gray_int(l: int) -> int:
     """
@@ -48,7 +50,7 @@ def gray_int(l: int) -> int:
     """
     return l ^ (l >> 1) # The ^ is XOR
 
-# print(gray_int(8)) # 8 in gray is 12 in binary (so machines stores gray encoding of 8 as 12)
+## Interesting: print(gray_int(8)) # 8 in gray is 12 in binary (so machines stores gray encoding of 8 as 12)
 
 def gray_bits(l: int, d: int) -> list[int]:
     """"
@@ -75,10 +77,11 @@ def unary_bits(l: int, d: int) -> list[int]:
     bits[l] = 1
     return bits
 
+
 def bitmask_subset(l: int, d: int, encoding: str) -> set[int]:
     """
     Returns the labelling of the qubits associated with the encoding.
-    For more compact encodings (sba nd gray) it is all of them - 
+    For more compact encodings (sb and gray) it is all of them - 
     all the qubits are needed to know what level this encoding represents.
     For the unary encoding only the qubit corresponding to the only 1 is important.
     """
@@ -90,9 +93,6 @@ def bitmask_subset(l: int, d: int, encoding: str) -> set[int]:
     else:
         raise ValueError(f"Unknown encoding: {encoding}")
     
-# print(f'bitstring sb: {sb_bits(5, 4)}; bitmask subset for sb example: {bitmask_subset(5,4, "sb")}')
-# print(f'bitstring gray {gray_bits(5, 4)}; bitmask subset for gray example: {bitmask_subset(5,4, "gray")}')
-# print(f'bitstring unary: {unary_bits(5, 6)}; bitmask subset for unary example: {bitmask_subset(5,6, "unary")}')
 
 def bits_for_level(l: int, d: int, encoding: str) -> list[int]:
     """"
@@ -109,7 +109,6 @@ def bits_for_level(l: int, d: int, encoding: str) -> list[int]:
     else:
         raise ValueError(f"Unknown encoding: {encoding}")
 
-# print(bits_for_level(5, 6, "unary")) # In reality the 1 is at the lhs (read from right to left!)
 
 def n_qubits(d: int, encoding: str) -> int:
     """
@@ -122,3 +121,6 @@ def n_qubits(d: int, encoding: str) -> int:
     else:
         raise ValueError(f"Unknown encoding: {encoding}")
     
+
+# print(f'The number of qubits needed to represent a system with a max Fock state of 10 standard binary (compact encoding): {n_qubits(11, "sb")}')
+# print(f'The number of qubits needed to represent a system with a max Fock state of 10 standard binary: {n_qubits(11, "unary")}')

@@ -1,58 +1,108 @@
+from __future__ import annotations
+from collections.abc import Iterable
+from pathlib import Path
 import matplotlib.pyplot as plt
+import json
+from src.pauli_string_formation.mapping import (
+    matrix_to_qubit_operator,
+    pseudo_alphabetical_qubit_operator,
+)
+from pauli_string_formation.ps_quadratures import position_operator_matrix
+from src.cnot_counts.num_paper_counts import num_paper_cnot_counts
 
-from cnot_counts.num_paper_counts import paper_cnot_counts
-
-
-def plot_paper_results(d_values, raw, optimized, title, filename):
+def num_paper_counts_for_encoding(
+    d_values: Iterable[int],
+    encoding: str,
+) -> tuple[list[int], list[int], list[int]]:
     """
-    Plot paper-style CNOT counts (before vs after optimization).
+    For each d (d = N_max + 1):
+      1. build q operator matrix
+      2. map to qubit operator under chosen encoding
+      3. count raw CNOT count and CNOT count after paper optimization
 
-    Same color = same encoding
-    Different linestyle = raw vs optimized
+    Returns
+    -------
+    ds, raw_counts, optimized_counts
     """
-    plt.figure(figsize=(7, 4.5))
+    ds: list[int] = []
+    pre_op_count: list[int] = []
+    optimized_count: list[int] = []
 
-    colors = {
-        "sb": "#1c97ef",
-        "gray": "#d7e727",
-        "unary": "#e66006",
-    }
+    for d in d_values:
+        print(f"[{encoding}] building operator for d={d}")
 
-    labels = {
-        "sb": "Std. binary",
-        "gray": "Gray",
-        "unary": "Unary",
-    }
+        mat = position_operator_matrix(d)
+        op = matrix_to_qubit_operator(mat, d, encoding)
+        op_pseudo = pseudo_alphabetical_qubit_operator(op)
 
-    for enc in ["sb", "gray", "unary"]:
+        raw_cx, opt_cx = num_paper_cnot_counts(op_pseudo)
 
-        # raw → dashed
-        plt.plot(
-            d_values,
-            raw[enc],
-            linestyle="--",
-            marker="o",
-            color=colors[enc],
-            label=f"{labels[enc]} (raw)"
-        )
+        print(f"[{encoding}] d={d}: pre paper outlined optimization cnot count={raw_cx}, post paper outlined optimization cnot count={opt_cx}")
 
-        # optimized → solid
-        plt.plot(
-            d_values,
-            optimized[enc],
-            linestyle="-",
-            marker="o",
-            color=colors[enc],
-            label=f"{labels[enc]} (optimized)"
-        )
+        ds.append(d)
+        pre_op_count.append(raw_cx)
+        optimized_count.append(opt_cx)
 
-    plt.xlabel("Bosonic cutoff $d$")
+    return ds, pre_op_count, optimized_count
+
+
+def save_plot(
+    results: dict[str, tuple[list[int], list[int], list[int]]],
+    output_path: Path,
+    show_raw: bool = False,
+    logy: bool = False,
+) -> None:
+    """
+    Plot optimized CNOT count vs cutoff d for each encoding.
+    Optionally overlay raw counts.
+    """
+    plt.figure(figsize=(8, 5))
+
+    for encoding, (ds, pre_op_count, optimized_count) in results.items():
+        plt.plot(ds, optimized_count, marker="o", label=f"{encoding} (after optimization)")
+        if show_raw:
+            plt.plot(ds, pre_op_count, marker="o", linestyle="--", label=f"{encoding} (before optimization)")
+
+    plt.xlabel("Cutoff d")
     plt.ylabel("CNOT count")
-    plt.title(title)
+    plt.title("Paper pre and post optimized CNOT cost vs cutoff d")
+
+    if logy:
+        plt.yscale("log")
 
     plt.legend()
-    plt.grid(alpha=0.3)
     plt.tight_layout()
+    plt.savefig(output_path, dpi=300)
+    print(f"Saved plot to {output_path}")
 
-    plt.savefig(filename, dpi=200)
-    plt.show()
+
+def main() -> None:
+    encodings = ["sb", "gray", "unary"]
+    d_values = list(range(2, 33))
+
+    results: dict[str, tuple[list[int], list[int], list[int]]] = {} # how to store the results
+
+    for encoding in encodings:
+        results[encoding] = num_paper_counts_for_encoding(
+            d_values=d_values,
+            encoding=encoding,
+        )
+
+    results_dir = Path(__file__).resolve().parents[2] / "results"
+    results_dir.mkdir(exist_ok=True)
+
+    json_path = results_dir / "paper_num_cnot_vs_d_32_01_05.json"
+    with open(json_path, "w") as f:
+        json.dump(results, f)
+
+    plot_path = results_dir / "paper_num_cnot_vs_d_32_01_05.png"
+    save_plot(
+        results=results,
+        output_path=plot_path,
+        show_raw=True,
+        logy=False,
+    )
+
+
+if __name__ == "__main__":
+    main()

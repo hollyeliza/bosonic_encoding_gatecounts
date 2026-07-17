@@ -1,34 +1,16 @@
-# code matching paper's logic:
-
-# The circuit optimization was performed as follows. In the optimizer, every gate is represented 
-# in a data structure that contains its attributes, e.g. its inverse gate, its commutation properties
-# with other gates, and whether it is a rotation gate. For each gate, the optimizer looks for an 
-# opportunity to cancel it with its inverse or merge it with another rotation gate by commuting it as 
-# far forwards and backwards as possible. The optimizer also looks for a limited set of commonly 
-# occurring patterns that allow for gate reductions. For the circuits used in this study, this 
-# pattern-searching allows us to reduce some sets of three CNOT gates to two: any gate sequence 
-# CNOT(i0,i1) × CNOT(i1 ,i2 ) × CNOT(i0 ,i1 ) is changed to the equivalent CNOT(i0 ,i2 ) × CNOT(i1 ,i2 ). 
-# Merging and cancelling gates, as well as this pattern-searching, are performed for several passes until 
-# the circuit converges. The choice of ordering for the Pauli terms affects the gate counts, as different 
-# orderings of CNOT ladders affect the presence of particular pairs of eliminable gates. Finding the absolute 
-# optimal ordering is a combinatorially hard problem and is not the focus of this work [BKM18]. However, to 
-# test the quality of the default ordering, we took the encoded bosonic qˆ operator for the unary, gray, and 
-# standard binary codes, testing >900 random orderings for each.
-#
-# We found that the default ordering was superior to every random ordering. This result is intuitive, as 
-# orderings that match similar Pauli strings side-by-side will lead to more pairs of adjacent CNOT gates 
-# and adjacent single-qubit gates.
-
-# Convert Pauli term to CNOT ladder in order obtained after pseudo-alphabetical def
-# Construct circuit
-# Commut each term as far back and as far forward as possible to see if it can be cancelled with
-# inverse or merged with another rotation gate.
-# The CNOT pattern described is looked for
-# This should be it
-
 from dataclasses import dataclass
 from typing import Optional
 
+# Attempt at construction of the optimizer used in the Sawaya et al. paper to obtain
+# the CNOT counts.
+
+# Start with op in pesudo alphabetical order
+# construct CNOT ladder in this order
+# make a class for the gate where attributes are: inverse gate, commutation properties with other gates, whether it is a rotation gate
+# actual optimization 1:
+# after contructing ladder, commute each gate as far forward and as far backwards as possible to see if you can cancel with inverse or merge
+# actual optimization 2:
+# pattern searching that cuts a 3 cnot gates into 2
 
 @dataclass(frozen=True)
 class Gate:
@@ -149,51 +131,38 @@ def bubble_once(records: list[Gate], start: int, direction: int) -> int:
 
 def expose_cancellations_and_merges(records: list[Gate], tol: float = 1e-12) -> bool:
     """
-    For each gate, commute it backwards through disjoint gates as far as possible,
-    then look for local cancellation / merging opportunities.
+    Simpler adjacent-only optimizer pass.
 
-    Returns True if anything changed.
+    It only checks gates that are already next to each other:
+      - identical self-inverse gates cancel
+      - opposite RZ rotations cancel
+      - neighbouring RZ rotations merge
     """
     changed = False
     i = 0
 
-    while i < len(records):
-        # commute backwards as far as possible
-        new_i = bubble_once(records, i, -1)
-        if new_i != i:
+    while i < len(records) - 1:
+        left = records[i]
+        right = records[i + 1]
+
+        if try_cancel_pair(left, right, tol=tol):
+            del records[i:i + 2]
             changed = True
-            i = new_i
+            i = max(i - 1, 0)
+            continue
 
-        local_changed = True
-        while local_changed:
-            local_changed = False
-
-            # cancel with left neighbor
-            if i > 0 and try_cancel_pair(records[i - 1], records[i], tol=tol):
-                del records[i]
-                del records[i - 1]
-                changed = True
-                local_changed = True
-                i = max(i - 2, 0)
-                continue
-
-            # merge with left neighbor
-            if i > 0:
-                merged = try_merge_pair(records[i - 1], records[i], tol=tol)
-                if merged is not None:
-                    del records[i]
-                    del records[i - 1]
-                    if abs(merged.angle) >= tol:
-                        records.insert(i - 1, merged)
-                    changed = True
-                    local_changed = True
-                    i = max(i - 1, 0)
-                    continue
+        merged = try_merge_pair(left, right, tol=tol)
+        if merged is not None:
+            del records[i:i + 2]
+            if abs(merged.angle) >= tol:
+                records.insert(i, merged)
+            changed = True
+            i = max(i - 1, 0)
+            continue
 
         i += 1
 
     return changed
-
 
 def apply_three_cnot_rule(records: list[Gate]) -> bool:
     """
@@ -233,41 +202,29 @@ def apply_three_cnot_rule(records: list[Gate]) -> bool:
     return changed
 
 
-def optimize_gate_list(
-    gates: list[Gate],
-    max_passes: int = 50,
-    tol: float = 1e-12,
-) -> list[Gate]:
-    """
-    SI-style repeated optimization until convergence.
-
-    Each pass:
-      1. commute gates to expose local simplifications
-      2. cancel inverse pairs
-      3. merge rotations
-      4. apply the 3-CNOT -> 2-CNOT pattern
-      5. repeat until no further change
-    """
+def optimize_gate_list(gates, max_passes=50, tol=1e-12):
     records = list(gates)
 
-    for _ in range(max_passes):
+    for pass_num in range(max_passes):
+        before = list(records)
+        before_len = len(records)
+
         changed = False
-
-        if expose_cancellations_and_merges(records, tol=tol):
-            changed = True
-
-        if apply_three_cnot_rule(records):
-            changed = True
-
-        if expose_cancellations_and_merges(records, tol=tol):
-            changed = True
+        changed |= expose_cancellations_and_merges(records, tol=tol)
+        changed |= apply_three_cnot_rule(records)
+        changed |= expose_cancellations_and_merges(records, tol=tol)
 
         records = remove_zero_rotations(records, tol=tol)
 
-        if not changed:
-            break
+        print(f"pass {pass_num}: {before_len} -> {len(records)}", flush=True)
 
-    return records
+        if records == before:
+            return records
+
+        if len(records) > before_len:
+            raise RuntimeError("Optimizer increased gate count; likely rewrite oscillation.")
+
+    raise RuntimeError("Optimizer did not converge.")
 
 def basis_change_gates_for_pauli(term) -> list[Gate]:
     """
@@ -370,7 +327,7 @@ def pauli_term_to_gate_list(term, theta: float) -> list[Gate]:
     return gates
 
 
-def qubit_operator_to_gate_list(op, term_order=None, tol: float = 1e-12) -> list[Gate]:
+def num_paper_gate_list(op) -> list[Gate]:
     """
     Convert a QubitOperator into one flat gate list by exponentiating
     each Pauli term separately in the chosen order.
@@ -378,12 +335,7 @@ def qubit_operator_to_gate_list(op, term_order=None, tol: float = 1e-12) -> list
     Parameters
     ----------
     op
-        QubitOperator-like object with .terms dictionary
-    term_order
-        Optional iterable of (term, coeff) pairs. If omitted, uses op.terms.items().
-        This lets you pass in your pseudo-alphabetically sorted ordering.
-    tol
-        Numerical tolerance for dropping tiny coefficients.
+        QubitOperator in pseudoalphabetical order.
 
     Returns
     -------
@@ -395,27 +347,16 @@ def qubit_operator_to_gate_list(op, term_order=None, tol: float = 1e-12) -> list
     This assumes coefficients are real to numerical tolerance.
     If a coefficient has a significant imaginary part, an error is raised.
     """
-    if term_order is None:
-        term_order = op.terms.items()
 
     gates: list[Gate] = []
 
-    for term, coeff in term_order:
-        if abs(coeff) < tol:
-            continue
-
-        if len(term) == 0:
-            # ignore identity term for gate counting
-            continue
-
+    for term, coeff in op.terms.items():
         coeff_c = complex(coeff)
-        if abs(coeff_c.imag) > tol:
-            raise ValueError(
-                f"Non-negligible imaginary coefficient encountered for term {term}: {coeff}"
-            )
+
+        if abs(coeff_c.imag) > 1e-12:
+            raise ValueError(f"Coefficient for term {term} has imaginary part: {coeff}")
 
         theta = float(coeff_c.real)
         gates.extend(pauli_term_to_gate_list(term, theta))
 
     return gates
-
