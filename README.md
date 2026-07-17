@@ -45,26 +45,6 @@ src/
     displacement.ipynb    # Wigner-plot validation notebook
 ```
 
-## Setup
-
-From the project root:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-If you use the validation notebook, clone `bosonic-qiskit` into the project
-root first:
-
-```bash
-git clone https://github.com/C2QA/bosonic-qiskit.git
-```
-
-The validation notebook adds `bosonic-qiskit/src` to the notebook path when run
-from inside this repository.
-
 ## Generate Qiskit CNOT Counts
 
 The Qiskit CNOT-count workflow starts in
