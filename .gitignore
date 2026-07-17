@@ -11,6 +11,8 @@ __pycache__/
 
 # Jupyter
 .ipynb_checkpoints/
+results/sawaya_ella.ipynb
+results/sawaya_ella_codex.ipynb
 
 # OS junk
 .DS_Store

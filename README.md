@@ -32,36 +32,18 @@ src/
     ps_quadratures.py     # Position and momentum quadrature matrices
 
   cnot_counts/
-    eq_paper_counts.py    # Equation-style CNOT-count estimates
-    num_paper_counts.py   # Numerical paper-style counting
     qiskit_counts.py      # Qiskit circuit CNOT counts
 
   optimize/
-    paper_op.py           # Paper-inspired Pauli-string ordering/optimization
     qiskit_comp_op.py     # Qiskit circuit synthesis and transpilation helpers
 
   plotting/
-    eq_paper_plot.py      # Generate equation-count result files
-    num_paper_plot.py     # Generate numerical paper-count result files
     qiskit_plot.py        # Generate Qiskit-count result files
 
   bosonic_validation/
     bosonic_test_op.py    # Helpers for encoded displacement validation
     displacement.ipynb    # Wigner-plot validation notebook
-
-results/
-  *.json                  # Saved CNOT-count data
-  *.ipynb                 # Plotting and inspection notebooks
-
-tests/
-  test_bosonic_disp.py
-  test_encodings_b.py
-  test_mapping.py
 ```
-
-The optional `bosonic-qiskit/` directory is used only for validation notebooks
-and Wigner plotting experiments. It is not required for the main CNOT-count
-workflow.
 
 ## Setup
 
@@ -122,63 +104,3 @@ To inspect the generated counts:
 4. Use the final printed values, or the values at a chosen cutoff such as
    `target_d = 128`, as the displacement CNOT counts for the Sawaya-style
    analysis.
-
-For a quick check with an existing result file, open `results/qiskit_cnot.ipynb`
-and use one of the JSON files already in `results/`.
-
-## Sawaya-Style Analysis
-
-The Sawaya notebooks use displacement CNOT counts to estimate the total
-entangling-gate cost of a larger Hamiltonian simulation.
-
-- `results/sawaya_ella.ipynb` is the original exploratory notebook. It contains
-  hand-entered and WebPlotDigitizer data from Sawaya-style plots, plus several
-  draft calculations for Hamiltonian gate-count estimates.
-- `results/sawaya_ella_codex.ipynb` is the cleaned-up copy. It keeps the same
-  idea but is organized top-to-bottom:
-  - digitized Sawaya displacement CNOT counts
-  - a plot recreating the Sawaya displacement-count curves
-  - one parameter cell for the Hamiltonian estimate
-  - helper functions for Trotter-step and entangling-gate estimates
-  - separate comparisons using Sawaya counts, Qiskit 1-step displacement counts,
-    and Qiskit 10-step displacement counts
-
-The intended workflow is:
-
-1. Generate Qiskit CNOT-count JSON with `python -m src.plotting.qiskit_plot`.
-2. Open `results/qiskit_cnot.ipynb` and load that JSON with `DATA_FILE`.
-3. Read off the optimized CNOT count for each encoding at the cutoff you want.
-4. Put those displacement counts into `results/sawaya_ella_codex.ipynb`.
-5. Run the Sawaya notebook to compare all-qubit encodings with the qubit-boson
-   baseline.
-
-## Useful Notebooks
-
-- `results/qiskit_cnot.ipynb`: plots Qiskit CNOT counts from a saved JSON file.
-- `results/sawaya_ella.ipynb`: original exploratory Sawaya comparison notebook.
-- `results/sawaya_ella_codex.ipynb`: cleaned Sawaya comparison notebook for
-  analyzing displacement CNOT counts inside the larger Hamiltonian estimate.
-- `results/eq_paper_cnot.ipynb`: inspects equation-style count results.
-- `results/num_paper_cnot.ipynb`: inspects numerical paper-style count results.
-- `src/bosonic_validation/displacement.ipynb`: visually checks encoded
-  displacement circuits using Wigner plots.
-
-## Tests
-
-Run the project tests with `src` on `PYTHONPATH`:
-
-```bash
-PYTHONPATH=src pytest tests
-```
-
-The `pytest.ini` file keeps test discovery scoped to this repository's tests
-and skips an optional local `bosonic-qiskit/` checkout.
-
-## Notes
-
-- The main operator used for gate counts is the position quadrature
-  `q = (a + a†) / sqrt(2)`.
-- The momentum quadrature is also implemented in `ps_quadratures.py`, but most
-  counting scripts currently focus on the position operator.
-- For large cutoffs, Qiskit optimization can be slow. Start with small
-  `d_values` before running a long sweep.
